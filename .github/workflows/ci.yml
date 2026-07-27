@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.7"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ImageMagick on Ubuntu
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - name: Install ImageMagick on macOS
+        if: runner.os == 'macOS'
+        run: brew install imagemagick
+      - name: Install ImageMagick on Windows
+        if: runner.os == 'Windows'
+        run: choco install imagemagick --version=7.1.1.47 -y
+      - run: uv sync --locked --dev
+      - run: uv run ruff check .
+      - run: uv run mypy
+      - run: uv run python scripts/check_generated.py
+      - run: uv run pytest

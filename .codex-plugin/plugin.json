@@ -1,0 +1,41 @@
+{
+  "name": "image-editor",
+  "version": "0.3.0+codex.20260727.1",
+  "description": "Source-attributed image search, provider-neutral generation, and project editing.",
+  "author": {
+    "name": "Shakhzod"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "images",
+    "editing",
+    "generation",
+    "search",
+    "web-search",
+    "openai",
+    "gemini",
+    "fal",
+    "compositing",
+    "png",
+    "jpeg"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Image Editor",
+    "shortDescription": "Image search, AI generation, and reproducible editing",
+    "longDescription": "Find source-attributed web images with OpenAI Image Search, generate or conversationally edit with OpenAI, Google, or Fal models, and finish reproducibly with immutable assets and project revisions.",
+    "developerName": "Shakhzod",
+    "category": "Creativity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Search the web for current, source-attributed image references.",
+      "Generate a professional image and preserve its provenance.",
+      "Edit this image conversationally without overwriting the source.",
+      "Decompose this design into editable semantic layers."
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Image Create"
+  short_description: "Generate professional images across providers"
+  default_prompt: "Use $image-create to generate a professional image and preserve its provenance."

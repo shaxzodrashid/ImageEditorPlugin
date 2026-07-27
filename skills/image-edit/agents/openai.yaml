@@ -1,0 +1,4 @@
+interface:
+  display_name: "Image Edit"
+  short_description: "Inspect and transform image project assets"
+  default_prompt: "Use $image-edit to crop and resize this image safely."

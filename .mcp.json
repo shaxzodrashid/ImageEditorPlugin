@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "image-editor": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        ".",
+        "image-editor-mcp"
+      ],
+      "cwd": ".",
+      "tool_timeout_sec": 130
+    }
+  }
+}

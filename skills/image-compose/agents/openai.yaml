@@ -1,0 +1,4 @@
+interface:
+  display_name: "Image Compose"
+  short_description: "Build deterministic layered compositions"
+  default_prompt: "Use $image-compose to combine these images into a banner."

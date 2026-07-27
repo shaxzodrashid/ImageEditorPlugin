@@ -1,0 +1,20 @@
+{
+  "name": "image-editor-local",
+  "interface": {
+    "displayName": "Image Editor Local"
+  },
+  "plugins": [
+    {
+      "name": "image-editor",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    }
+  ]
+}

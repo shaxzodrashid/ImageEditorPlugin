@@ -1,0 +1,708 @@
+{
+  "$defs": {
+    "AIConversationRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^cnv_[0-9a-f-]{36}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "provider": {
+          "$ref": "#/$defs/AIProviderId"
+        },
+        "model": {
+          "$ref": "#/$defs/AIModelId"
+        },
+        "provider_session_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Session Id"
+        },
+        "turns": {
+          "items": {
+            "$ref": "#/$defs/AIConversationTurn"
+          },
+          "title": "Turns",
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "provider",
+        "model",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "AIConversationRecord",
+      "type": "object"
+    },
+    "AIConversationTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^trn_[0-9a-f-]{36}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 32000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "input_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Asset Ids",
+          "type": "array"
+        },
+        "output_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Output Asset Ids",
+          "type": "array"
+        },
+        "mask_asset_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mask Asset Id"
+        },
+        "provider_request_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Request Id"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "prompt",
+        "input_asset_ids",
+        "output_asset_ids",
+        "created_at"
+      ],
+      "title": "AIConversationTurn",
+      "type": "object"
+    },
+    "AIModelId": {
+      "enum": [
+        "gpt-image-2",
+        "gemini-3.1-flash-image",
+        "gemini-3-pro-image",
+        "bytedance/seedream/v5/pro",
+        "xai/grok-imagine-image",
+        "fal-ai/qwen-image-layered"
+      ],
+      "title": "AIModelId",
+      "type": "string"
+    },
+    "AIProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/AIProviderId"
+        },
+        "model": {
+          "$ref": "#/$defs/AIModelId"
+        },
+        "operation": {
+          "title": "Operation",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "input_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Asset Ids",
+          "type": "array"
+        },
+        "mask_asset_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mask Asset Id"
+        },
+        "provider_request_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Request Id"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversation Id"
+        },
+        "parent_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parent Asset Ids",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "operation",
+        "prompt",
+        "created_at"
+      ],
+      "title": "AIProvenance",
+      "type": "object"
+    },
+    "AIProviderId": {
+      "enum": [
+        "openai",
+        "google",
+        "fal"
+      ],
+      "title": "AIProviderId",
+      "type": "string"
+    },
+    "AssetKind": {
+      "enum": [
+        "imported",
+        "derived",
+        "generated"
+      ],
+      "title": "AssetKind",
+      "type": "string"
+    },
+    "AssetRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^ast_[0-9a-f-]{36}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/AssetKind"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/ImageFormat"
+        },
+        "mime_type": {
+          "enum": [
+            "image/png",
+            "image/jpeg"
+          ],
+          "title": "Mime Type",
+          "type": "string"
+        },
+        "width": {
+          "maximum": 32768,
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "maximum": 32768,
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        },
+        "bit_depth": {
+          "maximum": 32,
+          "minimum": 1,
+          "title": "Bit Depth",
+          "type": "integer"
+        },
+        "has_alpha": {
+          "title": "Has Alpha",
+          "type": "boolean"
+        },
+        "color_space": {
+          "title": "Color Space",
+          "type": "string"
+        },
+        "has_icc_profile": {
+          "title": "Has Icc Profile",
+          "type": "boolean"
+        },
+        "source_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Name"
+        },
+        "operation_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operation Hash"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "ai_provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AIProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "path",
+        "sha256",
+        "format",
+        "mime_type",
+        "width",
+        "height",
+        "bit_depth",
+        "has_alpha",
+        "color_space",
+        "has_icc_profile",
+        "created_at"
+      ],
+      "title": "AssetRecord",
+      "type": "object"
+    },
+    "BlendMode": {
+      "enum": [
+        "normal"
+      ],
+      "title": "BlendMode",
+      "type": "string"
+    },
+    "Canvas": {
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "maximum": 32768,
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "maximum": 32768,
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        },
+        "color_space": {
+          "const": "sRGB",
+          "default": "sRGB",
+          "title": "Color Space",
+          "type": "string"
+        },
+        "bit_depth": {
+          "const": 8,
+          "default": 8,
+          "title": "Bit Depth",
+          "type": "integer"
+        },
+        "mode": {
+          "const": "RGB",
+          "default": "RGB",
+          "title": "Mode",
+          "type": "string"
+        },
+        "background": {
+          "default": "transparent",
+          "title": "Background",
+          "type": "string"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "title": "Canvas",
+      "type": "object"
+    },
+    "ExportRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^exp_[0-9a-f-]{36}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/ImageFormat"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width": {
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "title": "Height",
+          "type": "integer"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "format",
+        "path",
+        "sha256",
+        "width",
+        "height",
+        "parameters",
+        "created_at"
+      ],
+      "title": "ExportRecord",
+      "type": "object"
+    },
+    "ImageFormat": {
+      "enum": [
+        "PNG",
+        "JPEG"
+      ],
+      "title": "ImageFormat",
+      "type": "string"
+    },
+    "LayerRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^lyr_[0-9a-f-]{36}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "asset_id": {
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "x": {
+          "default": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "default": 0,
+          "title": "Y",
+          "type": "integer"
+        },
+        "opacity": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Opacity",
+          "type": "number"
+        },
+        "visible": {
+          "default": true,
+          "title": "Visible",
+          "type": "boolean"
+        },
+        "blend_mode": {
+          "$ref": "#/$defs/BlendMode",
+          "default": "normal"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "asset_id"
+      ],
+      "title": "LayerRecord",
+      "type": "object"
+    },
+    "OperationRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^op_[0-9a-f-]{36}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "target_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Target Ids",
+          "type": "array"
+        },
+        "input_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Asset Ids",
+          "type": "array"
+        },
+        "output_asset_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Output Asset Ids",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "engine": {
+          "title": "Engine",
+          "type": "string"
+        },
+        "engine_version": {
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "deterministic": {
+          "default": true,
+          "title": "Deterministic",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "target_ids",
+        "input_asset_ids",
+        "output_asset_ids",
+        "parameters",
+        "engine",
+        "engine_version",
+        "created_at"
+      ],
+      "title": "OperationRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "plugin_version": {
+      "default": "0.3.0",
+      "title": "Plugin Version",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^prj_[0-9a-f-]{36}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "revision": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "canvas": {
+      "$ref": "#/$defs/Canvas"
+    },
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/AssetRecord"
+      },
+      "maxItems": 1024,
+      "title": "Assets",
+      "type": "array"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/LayerRecord"
+      },
+      "maxItems": 256,
+      "title": "Layers",
+      "type": "array"
+    },
+    "operations": {
+      "items": {
+        "$ref": "#/$defs/OperationRecord"
+      },
+      "title": "Operations",
+      "type": "array"
+    },
+    "exports": {
+      "items": {
+        "$ref": "#/$defs/ExportRecord"
+      },
+      "title": "Exports",
+      "type": "array"
+    },
+    "ai_conversations": {
+      "items": {
+        "$ref": "#/$defs/AIConversationRecord"
+      },
+      "title": "Ai Conversations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project_id",
+    "name",
+    "created_at",
+    "updated_at",
+    "canvas"
+  ],
+  "title": "ProjectManifest",
+  "type": "object"
+}

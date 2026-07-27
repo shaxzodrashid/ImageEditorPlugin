@@ -1,0 +1,4 @@
+interface:
+  display_name: "Image Deliver"
+  short_description: "Preview validate and export image projects"
+  default_prompt: "Use $image-deliver to validate and export this project."

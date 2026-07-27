@@ -1,0 +1,4 @@
+interface:
+  display_name: "Image Search"
+  short_description: "Find source-attributed images with OpenAI"
+  default_prompt: "Use $image-search to find current, source-attributed image references."

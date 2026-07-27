@@ -1,0 +1,57 @@
+[project]
+name = "image-editor-plugin"
+version = "0.3.0"
+description = "Web-grounded image discovery, AI generation, and deterministic editing for Codex"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "filelock>=3.16,<4",
+  "httpx>=0.28,<1",
+  "mcp>=1.27,<2",
+  "pydantic>=2.10,<3",
+]
+
+[project.scripts]
+image-editor-mcp = "image_editor_plugin.server:main"
+image-editor-schema = "image_editor_plugin.schema_export:main"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.14,<2",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "ruff>=0.9,<1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/image_editor_plugin"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/image_editor_plugin/py.typed" = "image_editor_plugin/py.typed"
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "integration: requires ImageMagick 7",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["image_editor_plugin"]
+
+[[tool.mypy.overrides]]
+module = ["filelock.*"]
+ignore_missing_imports = true
