@@ -5,9 +5,9 @@ import base64
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -27,6 +27,17 @@ from .constants import (
 from .files import atomic_write_json, sha256_file
 
 REMBG_VERSION = "2.0.77"
+WORKER_PYTHON_VERSION = "3.12"
+# rembg's alpha-matting dependency leaves NumPy/Numba effectively unconstrained. Without these
+# pins, uv can prefer a newer NumPy and backtrack to numba 0.53.1, whose metadata does not declare
+# its real Python upper bound. That produces an attempted source build which fails on modern
+# Python even though compatible wheels exist for the pinned stack below.
+NUMERICAL_STACK = (
+    "numpy==2.4.6",
+    "pymatting==1.1.15",
+    "numba==0.66.0",
+    "llvmlite==0.48.0",
+)
 SMOKE_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z8DAwMDAxMDAwMAAAAwAAf4CB0kAAAAASUVORK5CYII="
 )
@@ -84,7 +95,7 @@ def install_runtime(profile: str, cache_root: Path | None = None) -> dict[str, o
             atomic_write_json(cache / "active.json", descriptor)
             return descriptor
         except Exception as exc:
-            failures.append(f"{candidate}: {type(exc).__name__}")
+            failures.append(f"{candidate}: {_failure_code(exc)}")
             _remove_owned_runtime(cache, runtime)
             if profile != "auto":
                 raise
@@ -144,17 +155,14 @@ def _windows_10_or_newer() -> bool:
 
 
 def _install_profile(uv: str, runtime: Path, profile: str) -> None:
-    subprocess.run(
-        [uv, "venv", "--python", sys.executable, str(runtime)],
-        shell=False,
-        capture_output=True,
-        text=True,
+    _run_install_step(
+        [uv, "venv", "--python", WORKER_PYTHON_VERSION, str(runtime)],
         timeout=180,
-        check=True,
+        phase="environment_creation",
     )
     python = _runtime_python(runtime)
     package, version = BACKGROUND_RUNTIME_VERSIONS[profile]
-    subprocess.run(
+    _run_install_step(
         [
             uv,
             "--no-config",
@@ -166,13 +174,51 @@ def _install_profile(uv: str, runtime: Path, profile: str) -> None:
             "https://pypi.org/simple",
             f"rembg=={REMBG_VERSION}",
             f"{package}=={version}",
+            *NUMERICAL_STACK,
         ],
-        shell=False,
-        capture_output=True,
-        text=True,
         timeout=600,
-        check=True,
+        phase="package_install",
     )
+
+
+def _run_install_step(command: list[str], *, timeout: int, phase: str) -> None:
+    try:
+        subprocess.run(
+            command,
+            shell=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = f"{exc.stdout or ''}\n{exc.stderr or ''}".casefold()
+        reason = (
+            "dependency_incompatible"
+            if any(
+                marker in detail
+                for marker in (
+                    "cannot install on python version",
+                    "no solution found",
+                    "no matching distribution",
+                    "requirements are unsatisfiable",
+                )
+            )
+            else "command_failed"
+        )
+        raise RuntimeError(f"{phase}_{reason}") from exc
+
+
+def _failure_code(exc: Exception) -> str:
+    message = str(exc)
+    if re.fullmatch(
+        r"(?:environment_creation|package_install)_(?:dependency_incompatible|command_failed)",
+        message,
+    ):
+        return message
+    if "smoke" in message.casefold():
+        return "smoke_inference_failed"
+    return type(exc).__name__
 
 
 def _download_model(cache: Path) -> Path:
@@ -189,7 +235,7 @@ def _download_model(cache: Path) -> Path:
             BACKGROUND_MODEL_URL,
             follow_redirects=True,
             timeout=httpx.Timeout(15, read=120),
-            headers={"User-Agent": "image-editor-plugin-model-installer/0.4.0"},
+            headers={"User-Agent": "image-editor-plugin-model-installer/0.4.1"},
         ) as response:
             response.raise_for_status()
             with stage.open("wb") as output:

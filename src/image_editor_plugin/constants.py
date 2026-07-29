@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-PLUGIN_VERSION = "0.4.0"
+PLUGIN_VERSION = "0.4.1"
 SCHEMA_VERSION = "1.2.0"
 
 MAX_COMPRESSED_INPUT_BYTES = 100 * 1024 * 1024

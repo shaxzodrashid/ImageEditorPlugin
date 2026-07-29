@@ -22,10 +22,37 @@ def test_profile_install_uses_fixed_index_versions_and_one_onnx_distribution(
     monkeypatch.setattr(installer.subprocess, "run", run)
     installer._install_profile("uv", tmp_path / "runtime", "directml")
     install_command = calls[1]
+    assert calls[0][2:4] == ["--python", "3.12"]
     assert "https://pypi.org/simple" in install_command
     assert "rembg==2.0.77" in install_command
     assert "onnxruntime-directml==1.24.4" in install_command
+    assert "numpy==2.4.6" in install_command
+    assert "pymatting==1.1.15" in install_command
+    assert "numba==0.66.0" in install_command
+    assert "llvmlite==0.48.0" in install_command
     assert sum(item.startswith("onnxruntime") for item in install_command) == 1
+
+
+def test_profile_install_reports_sanitized_dependency_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = 0
+
+    def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        raise subprocess.CalledProcessError(
+            1,
+            command,
+            output="",
+            stderr="No matching distribution found for the requested package",
+        )
+
+    monkeypatch.setattr(installer.subprocess, "run", run)
+    with pytest.raises(RuntimeError, match="package_install_dependency_incompatible"):
+        installer._install_profile("uv", tmp_path / "runtime", "cpu")
 
 
 def test_hash_rejection_removes_staged_download(

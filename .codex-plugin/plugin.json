@@ -1,6 +1,6 @@
 {
   "name": "image-editor",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Local object selection, background removal, image search, generation, and editing.",
   "author": {
     "name": "Shakhzod"

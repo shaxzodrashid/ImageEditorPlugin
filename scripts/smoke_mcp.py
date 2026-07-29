@@ -22,6 +22,8 @@ EXPECTED = {
     "project_validate",
     "asset_import",
     "image_inspect",
+    "object_select",
+    "background_remove",
     "layer_add",
     "transform_crop",
     "transform_resize",

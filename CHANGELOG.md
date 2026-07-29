@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fix local runtime installation by using a Python 3.12 worker and pinning the compatible
+  NumPy/PyMatting/Numba/llvmlite stack instead of allowing uv to backtrack to an obsolete
+  llvmlite source release. Installer failures now report a sanitized failing phase and reason.
+- Update the MCP smoke catalog for the two background-selection tools introduced in 0.4.0.
+- Bump the plugin patch version to 0.4.1; project schema remains 1.2.0.
+
 - Add local-only `object_select` and `background_remove` with connected-border selection, pinned
   isnet/rembg fallback, immutable masks/cutouts, reusable selections, and atomic revision commits.
 - Add isolated CPU/CUDA/DirectML/OpenVINO installation, runtime resource checks, actual provider
