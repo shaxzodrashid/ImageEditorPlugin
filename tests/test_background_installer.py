@@ -40,12 +40,15 @@ def test_profile_install_uses_fixed_index_versions_and_one_onnx_distribution(
 
     def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         calls.append(command)
+        if "find" in command:
+            return subprocess.CompletedProcess(command, 0, str(tmp_path / "python.exe"), "")
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.setattr(installer.subprocess, "run", run)
     installer._install_profile("uv", tmp_path / "runtime", "directml")
-    install_command = calls[1]
-    assert calls[0][2:4] == ["--python", "3.12"]
+    assert calls[0][-1] == "3.12"
+    assert calls[1][1:4] == ["-m", "venv", "--copies"]
+    install_command = calls[2]
     assert "https://pypi.org/simple" in install_command
     assert "rembg==2.0.77" in install_command
     assert "onnxruntime-directml==1.24.4" in install_command
@@ -65,6 +68,10 @@ def test_profile_install_reports_sanitized_dependency_failure(
         nonlocal calls
         calls += 1
         if calls == 1:
+            return subprocess.CompletedProcess(
+                command, 0, str(tmp_path / "python.exe"), ""
+            )
+        if calls == 2:
             return subprocess.CompletedProcess(command, 0, "", "")
         raise subprocess.CalledProcessError(
             1,

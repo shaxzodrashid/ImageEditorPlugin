@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Create the Linux worker environment with a copied managed Python interpreter so strict runtime
+  path containment accepts the standard venv layout. Bump the plugin patch version to 0.4.3.
 - Replace the malformed embedded smoke-test PNG with a structurally validated image and pin NumPy
   2.3.5 for compatibility with legacy x86 VPS CPUs so runtime activation reaches real ONNX
   inference. Bump the plugin patch version to 0.4.2.

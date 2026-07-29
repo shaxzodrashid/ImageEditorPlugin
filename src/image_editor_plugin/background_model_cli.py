@@ -156,8 +156,9 @@ def _windows_10_or_newer() -> bool:
 
 
 def _install_profile(uv: str, runtime: Path, profile: str) -> None:
+    worker_python = _find_worker_python(uv)
     _run_install_step(
-        [uv, "venv", "--python", WORKER_PYTHON_VERSION, str(runtime)],
+        [str(worker_python), "-m", "venv", "--copies", str(runtime)],
         timeout=180,
         phase="environment_creation",
     )
@@ -182,9 +183,32 @@ def _install_profile(uv: str, runtime: Path, profile: str) -> None:
     )
 
 
-def _run_install_step(command: list[str], *, timeout: int, phase: str) -> None:
+def _find_worker_python(uv: str) -> Path:
+    completed = _run_install_step(
+        [
+            uv,
+            "--no-config",
+            "python",
+            "find",
+            "--no-project",
+            "--managed-python",
+            "--resolve-links",
+            WORKER_PYTHON_VERSION,
+        ],
+        timeout=60,
+        phase="environment_creation",
+    )
+    candidate = Path(completed.stdout.strip())
+    if not candidate.is_absolute():
+        raise RuntimeError("environment_creation_command_failed")
+    return candidate
+
+
+def _run_install_step(
+    command: list[str], *, timeout: int, phase: str
+) -> subprocess.CompletedProcess[str]:
     try:
-        subprocess.run(
+        return subprocess.run(
             command,
             shell=False,
             capture_output=True,
@@ -236,7 +260,7 @@ def _download_model(cache: Path) -> Path:
             BACKGROUND_MODEL_URL,
             follow_redirects=True,
             timeout=httpx.Timeout(15, read=120),
-            headers={"User-Agent": "image-editor-plugin-model-installer/0.4.2"},
+            headers={"User-Agent": "image-editor-plugin-model-installer/0.4.3"},
         ) as response:
             response.raise_for_status()
             with stage.open("wb") as output:
