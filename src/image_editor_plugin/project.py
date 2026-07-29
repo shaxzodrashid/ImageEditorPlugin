@@ -20,6 +20,12 @@ from .constants import (
     MAX_ASSETS,
     MAX_LAYERS,
     PLUGIN_VERSION,
+    SAFE_ZONE_REFERENCE_BOTTOM,
+    SAFE_ZONE_REFERENCE_HEIGHT,
+    SAFE_ZONE_REFERENCE_LEFT,
+    SAFE_ZONE_REFERENCE_RIGHT,
+    SAFE_ZONE_REFERENCE_TOP,
+    SAFE_ZONE_REFERENCE_WIDTH,
     SCHEMA_VERSION,
 )
 from .engine import ImageInfo, ImageMagickEngine
@@ -831,9 +837,7 @@ class ProjectService:
                         source.width,
                         source.height,
                     ) or not info.has_alpha:
-                        raise selection_failed(
-                            "The transparent cutout failed output validation."
-                        )
+                        raise selection_failed("The transparent cutout failed output validation.")
                     if not destination.exists():
                         os.replace(stage, destination)
                         new_paths.append(destination)
@@ -858,17 +862,21 @@ class ProjectService:
                     asset_id=cutout.id,
                 )
                 manifest.layers.append(layer)
-            parameters = selection.parameters | cutout_parameters | {
-                "requested_method": selection.requested_method.value,
-                "resolved_method": selection.resolved_method.value,
-                "execution_policy": selection.execution_policy.value,
-                "runtime_profile": selection.runtime_profile,
-                "execution_provider": selection.execution_provider,
-                "cpu_fallback": selection.cpu_fallback,
-                "fallback_reason": selection.fallback_reason,
-                "local_inference": True,
-                "add_as_layer": add_as_layer,
-            }
+            parameters = (
+                selection.parameters
+                | cutout_parameters
+                | {
+                    "requested_method": selection.requested_method.value,
+                    "resolved_method": selection.resolved_method.value,
+                    "execution_policy": selection.execution_policy.value,
+                    "runtime_profile": selection.runtime_profile,
+                    "execution_provider": selection.execution_provider,
+                    "cpu_fallback": selection.cpu_fallback,
+                    "fallback_reason": selection.fallback_reason,
+                    "local_inference": True,
+                    "add_as_layer": add_as_layer,
+                }
+            )
             operation = self._operation(
                 "background_remove",
                 [selection.id, *([layer.id] if layer else [])],
@@ -1125,6 +1133,171 @@ class ProjectService:
             stage.unlink(missing_ok=True)
         return manifest, output, sha256_file(output)
 
+    def check_safe_zone(
+        self,
+        workspace_id: str,
+        project_path: str,
+        max_dimension: int,
+        margin_pixels: int | None = None,
+        critical_layer_ids: list[str] | None = None,
+    ) -> tuple[ProjectManifest, Path, str, dict[str, Any]]:
+        """Render a safe-zone guide and conservatively check designated critical layers."""
+        if not 64 <= max_dimension <= 4096:
+            raise invalid("Safe-zone preview max_dimension must be between 64 and 4,096.")
+        project_dir = self._project_dir(workspace_id, project_path, must_exist=True)
+        manifest = self._load(project_dir)
+        resolved_margins: dict[str, int]
+        margin_source = "explicit_pixels"
+        if margin_pixels is None:
+            resolved_margins = {
+                "top": max(
+                    1,
+                    round(
+                        manifest.canvas.height
+                        * SAFE_ZONE_REFERENCE_TOP
+                        / SAFE_ZONE_REFERENCE_HEIGHT
+                    ),
+                ),
+                "right": max(
+                    1,
+                    round(
+                        manifest.canvas.width
+                        * SAFE_ZONE_REFERENCE_RIGHT
+                        / SAFE_ZONE_REFERENCE_WIDTH
+                    ),
+                ),
+                "bottom": max(
+                    1,
+                    round(
+                        manifest.canvas.height
+                        * SAFE_ZONE_REFERENCE_BOTTOM
+                        / SAFE_ZONE_REFERENCE_HEIGHT
+                    ),
+                ),
+                "left": max(
+                    1,
+                    round(
+                        manifest.canvas.width * SAFE_ZONE_REFERENCE_LEFT / SAFE_ZONE_REFERENCE_WIDTH
+                    ),
+                ),
+            }
+            margin_source = "scaled_reference_template"
+        else:
+            resolved_margins = dict.fromkeys(("top", "right", "bottom", "left"), margin_pixels)
+        if any(value < 1 for value in resolved_margins.values()):
+            raise invalid("Safe-zone margin_pixels must be at least 1.")
+        if (
+            resolved_margins["left"] + resolved_margins["right"] >= manifest.canvas.width
+            or resolved_margins["top"] + resolved_margins["bottom"] >= manifest.canvas.height
+        ):
+            raise invalid("Safe-zone margins must leave a non-empty inner area.")
+
+        requested_ids = critical_layer_ids or []
+        if len(requested_ids) > MAX_LAYERS:
+            raise invalid("Safe-zone checks cannot include more than 256 critical layers.")
+        if len(set(requested_ids)) != len(requested_ids):
+            raise invalid("Safe-zone critical_layer_ids must be unique.")
+
+        safe_left = resolved_margins["left"]
+        safe_top = resolved_margins["top"]
+        safe_right = manifest.canvas.width - resolved_margins["right"]
+        safe_bottom = manifest.canvas.height - resolved_margins["bottom"]
+        checked_layers: list[dict[str, Any]] = []
+        violations: list[dict[str, Any]] = []
+        for layer_id in requested_ids:
+            layer = self._find_layer(manifest, layer_id)
+            if not layer.visible or layer.opacity <= 0:
+                raise invalid(f"Critical layer {layer.id} must be visible with positive opacity.")
+            asset = self._find_asset(manifest, layer.asset_id)
+            bounds = {
+                "x": layer.x,
+                "y": layer.y,
+                "width": asset.width,
+                "height": asset.height,
+            }
+            overflow = {
+                "left": max(0, safe_left - layer.x),
+                "top": max(0, safe_top - layer.y),
+                "right": max(0, layer.x + asset.width - safe_right),
+                "bottom": max(0, layer.y + asset.height - safe_bottom),
+            }
+            item = {
+                "layer_id": layer.id,
+                "name": layer.name,
+                "asset_id": asset.id,
+                "bounds": bounds,
+                "inside_safe_zone": not any(overflow.values()),
+            }
+            checked_layers.append(item)
+            if any(overflow.values()):
+                violations.append({**item, "overflow_pixels": overflow})
+
+        output = (
+            project_dir
+            / "previews"
+            / (
+                f"safe-zone-r{manifest.revision}"
+                f"-t{resolved_margins['top']}-r{resolved_margins['right']}"
+                f"-b{resolved_margins['bottom']}-l{resolved_margins['left']}.png"
+            )
+        )
+        stage = self._stage_path(project_dir, ".png")
+        try:
+            self.engine.render(
+                manifest.canvas.width,
+                manifest.canvas.height,
+                manifest.canvas.background,
+                self._render_layers(project_dir, manifest),
+                stage,
+                preview_max=max_dimension,
+                safe_zone_margins=(
+                    resolved_margins["top"],
+                    resolved_margins["right"],
+                    resolved_margins["bottom"],
+                    resolved_margins["left"],
+                ),
+            )
+            os.replace(stage, output)
+        finally:
+            stage.unlink(missing_ok=True)
+
+        result = {
+            "status": "fail" if violations else "review_required",
+            "geometry_passed": not violations,
+            "safe_zone": {
+                "bounds": {
+                    "x": safe_left,
+                    "y": safe_top,
+                    "width": safe_right - safe_left,
+                    "height": safe_bottom - safe_top,
+                },
+                "margins": resolved_margins,
+                "margin_source": margin_source,
+                "reference_template": {
+                    "width": SAFE_ZONE_REFERENCE_WIDTH,
+                    "height": SAFE_ZONE_REFERENCE_HEIGHT,
+                    "margins": {
+                        "top": SAFE_ZONE_REFERENCE_TOP,
+                        "right": SAFE_ZONE_REFERENCE_RIGHT,
+                        "bottom": SAFE_ZONE_REFERENCE_BOTTOM,
+                        "left": SAFE_ZONE_REFERENCE_LEFT,
+                    },
+                },
+            },
+            "critical_layers_checked": checked_layers,
+            "violations": violations,
+            "visual_review_required": True,
+            "review_instructions": [
+                "Open the overlay preview and confirm that all text, logos, faces, prices, "
+                "and calls to action stay inside the clear inner area.",
+                "Backgrounds and intentional full-bleed decoration may extend through the "
+                "red perimeter.",
+                "A geometry pass is not a semantic approval; flattened raster content still "
+                "requires visual review.",
+            ],
+        }
+        return manifest, output, sha256_file(output), result
+
     def export(
         self,
         workspace_id: str,
@@ -1296,8 +1469,7 @@ class ProjectService:
             output_asset_ids=outputs,
             parameters=parameters,
             engine=engine_name or ("project" if project_operation else "ImageMagick"),
-            engine_version=engine_version
-            or ("1" if project_operation else self.engine.version),
+            engine_version=engine_version or ("1" if project_operation else self.engine.version),
             deterministic=deterministic,
             created_at=self.time_provider(),
             warnings=warnings or [],
@@ -1519,8 +1691,7 @@ def _perimeter_samples(width: int, height: int, target_per_edge: int) -> list[tu
         for index in range(horizontal_count)
     }
     vertical = {
-        round(index * (height - 1) / max(1, vertical_count - 1))
-        for index in range(vertical_count)
+        round(index * (height - 1) / max(1, vertical_count - 1)) for index in range(vertical_count)
     }
     return list(
         dict.fromkeys(

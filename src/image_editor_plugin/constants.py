@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-PLUGIN_VERSION = "0.4.3"
+PLUGIN_VERSION = "0.5.0"
 SCHEMA_VERSION = "1.2.0"
+
+SAFE_ZONE_REFERENCE_WIDTH = 1080
+SAFE_ZONE_REFERENCE_HEIGHT = 1350
+SAFE_ZONE_REFERENCE_TOP = 64
+SAFE_ZONE_REFERENCE_RIGHT = 65
+SAFE_ZONE_REFERENCE_BOTTOM = 70
+SAFE_ZONE_REFERENCE_LEFT = 65
 
 MAX_COMPRESSED_INPUT_BYTES = 100 * 1024 * 1024
 MAX_DECODED_PIXELS = 100_000_000
@@ -16,8 +23,7 @@ BACKGROUND_MIN_FREE_DISK_BYTES = 2 * 1024 * 1024 * 1024
 BACKGROUND_MODEL_ID = "isnet-general-use"
 BACKGROUND_MODEL_FILENAME = "isnet-general-use.onnx"
 BACKGROUND_MODEL_URL = (
-    "https://github.com/danielgatis/rembg/releases/download/v0.0.0/"
-    "isnet-general-use.onnx"
+    "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
 )
 # Upstream rembg 2.0.77 pins this model with the equivalent MD5. The installer uses SHA-256.
 BACKGROUND_MODEL_SHA256 = "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a"

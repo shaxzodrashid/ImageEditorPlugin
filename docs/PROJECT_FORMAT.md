@@ -32,3 +32,9 @@ for native continuity. API keys and authorization headers are never project data
 
 The checked-in schema is [project-manifest.schema.json](../schemas/project-manifest.schema.json).
 Derived identity hashes the input checksum, resolved parameters, engine name, and engine version.
+
+Normal previews use `preview-r<revision>.png`. Safe-zone reviews use
+`safe-zone-r<revision>-t<top>-r<right>-b<bottom>-l<left>.png`. Both are derived, replaceable views that do not increment
+the manifest revision and are not delivery exports. Safe-zone reports are returned to the caller;
+they are not persisted as manifest approval because final semantic approval requires AI visual
+inspection of that exact preview.

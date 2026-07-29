@@ -27,11 +27,24 @@ All tools return one envelope with `ok`, `job_id: null`, identifiers, `outputs`,
 | `transform_position` | Sets integer top-left layer coordinates |
 | `composite_overlay` | Adds a positioned normal-blend overlay |
 | `image_render_preview` | Writes a bounded PNG without changing revision |
+| `poster_safe_zone_check` | Renders a safe-zone overlay and checks critical layer bounds |
 | `export_png` / `export_jpeg` | Writes and records an atomic delivery export |
 
 Every project tool requires `workspace_id` and workspace-relative `project_path`.
 Mutations require `expected_revision`; stale callers receive `CONFLICT`. Document resize
 requires `content_policy: scale_all | canvas_only`. JPEG requires an explicit background.
+
+`poster_safe_zone_check` is read-only with respect to the manifest and writes only a replaceable
+preview under `previews/`. By default it scales the supplied 1080×1350 reference's measured
+top/right/bottom/left margins of 64/65/70/65 px to the canvas dimensions. Set `margin_pixels` for
+an exact uniform platform or campaign rule. Pass only semantically critical foreground layer IDs
+in `critical_layer_ids`; intentional
+background/full-bleed layers should not be included. The result contains resolved bounds, layer
+bounds, per-edge overflow, an overlay path/checksum, and `visual_review_required: true`.
+
+`status: fail` means at least one designated critical layer crosses the inset. Otherwise the tool
+returns `status: review_required`, never an automatic semantic pass: the caller must open the
+overlay and verify text, logos, faces, prices, and calls to action in flattened raster content.
 
 `object_select` and `background_remove` accept `method: auto | border | local_model` and
 `execution_policy: auto | cpu | accelerator`. Auto selection tries connected border removal first

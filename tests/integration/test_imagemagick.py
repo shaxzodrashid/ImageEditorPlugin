@@ -104,7 +104,38 @@ def test_cutout_alpha_multiplies_original_alpha(tmp_path: Path) -> None:
     )
     engine = ImageMagickEngine(executable)
     engine.apply_selection_mask(source, mask, cutout)
-    result = engine.run(
-        ["identify", "-quiet", "-format", "%[fx:p{2,2}.a]", str(cutout)]
-    )
+    result = engine.run(["identify", "-quiet", "-format", "%[fx:p{2,2}.a]", str(cutout)])
     assert float(result.stdout) == pytest.approx(0.25, abs=0.01)
+
+
+@pytest.mark.integration
+def test_safe_zone_overlay_marks_only_the_perimeter(tmp_path: Path) -> None:
+    executable = shutil.which("magick")
+    if executable is None:
+        pytest.skip("ImageMagick 7 is not installed")
+    output = tmp_path / "safe-zone.png"
+    engine = ImageMagickEngine(executable)
+
+    engine.render(1080, 1350, "white", [], output, safe_zone_margins=(64, 65, 70, 65))
+
+    result = engine.run(
+        [
+            "identify",
+            "-quiet",
+            "-format",
+            (
+                "%[pixel:p{64,675}]|%[pixel:p{65,675}]|"
+                "%[pixel:p{540,63}]|%[pixel:p{540,64}]|"
+                "%[pixel:p{540,1279}]|%[pixel:p{540,1280}]"
+            ),
+            str(output),
+        ]
+    )
+    left_edge, left_inner, top_edge, top_inner, bottom_inner, bottom_edge = (
+        result.stdout.casefold().split("|")
+    )
+    assert left_edge != left_inner
+    assert top_edge != top_inner
+    assert bottom_edge != bottom_inner
+    for inner in (left_inner, top_inner, bottom_inner):
+        assert "255,255,255" in inner or "100%,100%,100%" in inner

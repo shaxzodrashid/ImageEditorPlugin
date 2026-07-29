@@ -279,9 +279,7 @@ class ImageMagickEngine:
                 "info:",
             ]
         )
-        match = re.fullmatch(
-            r"\+(\d+),\+(\d+),(\d+),(\d+)", geometry_result.stdout.strip()
-        )
+        match = re.fullmatch(r"\+(\d+),\+(\d+),(\d+),(\d+)", geometry_result.stdout.strip())
         if not match:
             raise EditorError("SELECTION_FAILED", "The foreground selection is empty.")
         x, y, width, height = (int(value) for value in match.groups())
@@ -299,6 +297,7 @@ class ImageMagickEngine:
         jpeg_quality: int | None = None,
         jpeg_background: str | None = None,
         metadata_strip: bool = True,
+        safe_zone_margins: tuple[int, int, int, int] | None = None,
     ) -> None:
         color = "none" if background == "transparent" else background
         args = ["-size", f"{canvas_width}x{canvas_height}", f"canvas:{color}"]
@@ -321,6 +320,30 @@ class ImageMagickEngine:
                     "-compose",
                     "over",
                     "-composite",
+                ]
+            )
+        if safe_zone_margins is not None:
+            safe_top, safe_right, safe_bottom, safe_left = safe_zone_margins
+            right = canvas_width - 1
+            bottom = canvas_height - 1
+            inner_bottom = canvas_height - safe_bottom - 1
+            top_band_bottom = safe_top - 1
+            bottom_band_top = canvas_height - safe_bottom
+            right_band_left = canvas_width - safe_right
+            guide = (
+                f"rectangle 0,0 {right},{top_band_bottom} "
+                f"rectangle 0,{bottom_band_top} {right},{bottom} "
+                f"rectangle 0,{safe_top} {safe_left - 1},{inner_bottom} "
+                f"rectangle {right_band_left},{safe_top} {right},{inner_bottom}"
+            )
+            args.extend(
+                [
+                    "-fill",
+                    "rgba(255,12,39,0.50)",
+                    "-stroke",
+                    "none",
+                    "-draw",
+                    guide,
                 ]
             )
         if preview_max is not None:
@@ -356,19 +379,19 @@ class ImageMagickEngine:
             arguments = arguments[1:]
         command.extend(
             [
-            "-limit",
-            "memory",
-            "1GiB",
-            "-limit",
-            "map",
-            "2GiB",
-            "-limit",
-            "disk",
-            "4GiB",
-            "-limit",
-            "thread",
-            "2",
-            *arguments,
+                "-limit",
+                "memory",
+                "1GiB",
+                "-limit",
+                "map",
+                "2GiB",
+                "-limit",
+                "disk",
+                "4GiB",
+                "-limit",
+                "thread",
+                "2",
+                *arguments,
             ]
         )
         try:

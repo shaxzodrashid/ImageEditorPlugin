@@ -4,7 +4,7 @@ An installable Codex plugin for source-attributed visual discovery, provider-neu
 creation, and deterministic, reproducible image work:
 
 ```text
-generate/edit → immutable asset → layer/finish → preview → PNG/JPEG export
+generate/edit → immutable asset → layer/finish → preview → safe-zone review → PNG/JPEG export
 ```
 
 ## Local object selection and background removal
@@ -66,6 +66,19 @@ The plugin accepts PNG and JPEG, uses ordered normal-blend pixel layers and immu
 masks on an 8-bit sRGB canvas, and exports PNG or explicitly flattened JPEG. PSD/PSB, editable
 per-layer masks, groups, filters, undo/redo, and background jobs remain deferred.
 
+## Poster safe-zone validation
+
+`poster_safe_zone_check` creates a non-mutating overlay preview and checks the rectangular bounds
+of explicitly designated critical layers such as titles, logos, prices, faces, and calls to action.
+The default inset scales the supplied 1080×1350 reference template's measured margins—64 px top,
+65 px right, 70 px bottom, and 65 px left—to the canvas dimensions. Callers can provide a uniform
+exact pixel margin when a channel has another rule.
+
+The red perimeter may contain backgrounds and intentional full-bleed decoration. A geometry pass
+never counts as final approval: the calling AI must open the returned preview and verify the
+flattened content visually, because raster assets do not encode which pixels are semantically
+important.
+
 ## Requirements
 
 - Python 3.12+
@@ -115,7 +128,9 @@ Start with `system_preflight`, then register the narrowest filesystem root with
 4. Generate or edit; preserve returned candidates as generated assets.
 5. Continue with the returned conversation ID or add the selected asset as a layer.
 6. Apply exact crop, resize, and placement with deterministic tools.
-7. Render a preview, validate checksums, and export.
+7. Render a preview and run `poster_safe_zone_check` for poster/social deliverables.
+8. Open the safe-zone preview, resolve every critical-content violation, then validate checksums.
+9. Export only after both visual safe-zone review and `project_validate` pass.
 
 Existing exports are never replaced unless `overwrite: true` is supplied.
 

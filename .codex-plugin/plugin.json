@@ -1,7 +1,7 @@
 {
   "name": "image-editor",
-  "version": "0.4.3",
-  "description": "Local object selection, background removal, image search, generation, and editing.",
+  "version": "0.5.0+codex.20260729122354",
+  "description": "Image search, generation, editing, background removal, and poster safe-zone review.",
   "author": {
     "name": "Shakhzod"
   },
@@ -17,6 +17,8 @@
     "fal",
     "compositing",
     "background-removal",
+    "safe-zone",
+    "poster-validation",
     "local-inference",
     "png",
     "jpeg"
@@ -25,8 +27,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Image Editor",
-    "shortDescription": "Image search, AI generation, and reproducible editing",
-    "longDescription": "Select objects and remove backgrounds fully locally, find source-attributed web images, generate or edit through supported AI providers, and finish reproducibly with immutable assets and project revisions.",
+    "shortDescription": "Image creation, editing, and poster validation",
+    "longDescription": "Select objects and remove backgrounds locally, find source-attributed web images, generate or edit through supported AI providers, validate poster safe zones, and finish reproducibly with immutable assets and project revisions.",
     "developerName": "Shakhzod",
     "category": "Creativity",
     "capabilities": [
@@ -38,7 +40,8 @@
       "Generate a professional image and preserve its provenance.",
       "Edit this image conversationally without overwriting the source.",
       "Remove this image background locally without uploading it.",
-      "Decompose this design into editable semantic layers."
+      "Decompose this design into editable semantic layers.",
+      "Check this poster's critical content against its safe zone before export."
     ]
   }
 }

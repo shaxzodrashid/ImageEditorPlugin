@@ -181,13 +181,9 @@ def system_capabilities() -> dict[str, Any]:
                     "temporary_disk_bytes": 4 * 1024**3,
                     "threads": 2,
                     "timeout_seconds": OPERATION_TIMEOUT_SECONDS,
-                    "background_attempt_timeout_seconds": (
-                        BACKGROUND_OPERATION_TIMEOUT_SECONDS
-                    ),
+                    "background_attempt_timeout_seconds": (BACKGROUND_OPERATION_TIMEOUT_SECONDS),
                     "background_minimum_memory_bytes": BACKGROUND_MIN_FREE_MEMORY_BYTES,
-                    "background_minimum_temporary_disk_bytes": (
-                        BACKGROUND_MIN_FREE_DISK_BYTES
-                    ),
+                    "background_minimum_temporary_disk_bytes": (BACKGROUND_MIN_FREE_DISK_BYTES),
                     "image_search_results": MAX_IMAGE_SEARCH_RESULTS,
                     "image_search_domains": MAX_IMAGE_SEARCH_DOMAINS,
                 },
@@ -740,6 +736,42 @@ def image_render_preview(
                 "path": relative_to_root(output, registry.root(workspace_id)),
                 "sha256": checksum,
             },
+        }
+
+    return run_enveloped(action)
+
+
+@mcp.tool(annotations=READ_ONLY)
+def poster_safe_zone_check(
+    workspace_id: str,
+    project_path: str,
+    max_dimension: int = 1600,
+    margin_pixels: int | None = None,
+    critical_layer_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Render a safe-zone overlay and check designated critical layer bounds."""
+
+    def action() -> dict[str, Any]:
+        manifest, output, checksum, result = projects.check_safe_zone(
+            workspace_id,
+            project_path,
+            max_dimension,
+            margin_pixels,
+            critical_layer_ids,
+        )
+        return {
+            "project_id": manifest.project_id,
+            "revision": manifest.revision,
+            "outputs": {
+                **result,
+                "preview": {
+                    "path": relative_to_root(output, registry.root(workspace_id)),
+                    "sha256": checksum,
+                },
+            },
+            "warnings": [
+                "Safe-zone approval requires visual inspection of the returned overlay preview."
+            ],
         }
 
     return run_enveloped(action)

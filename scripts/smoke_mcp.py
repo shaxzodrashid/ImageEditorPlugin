@@ -30,6 +30,7 @@ EXPECTED = {
     "transform_position",
     "composite_overlay",
     "image_render_preview",
+    "poster_safe_zone_check",
     "export_png",
     "export_jpeg",
 }

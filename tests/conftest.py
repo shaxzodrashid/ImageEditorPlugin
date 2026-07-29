@@ -28,6 +28,7 @@ class FakeEngine(ImageMagickEngine):
         self.fail_apply = False
         self.edge_colors = [(255, 255, 255)] * 256
         self.selection_coverage = 0.5
+        self.last_render_kwargs: dict[str, object] = {}
 
     def preflight(self) -> dict[str, object]:
         return {
@@ -91,9 +92,7 @@ class FakeEngine(ImageMagickEngine):
         info = self.inspect(source)
         output.write_text(f"{info.width}x{info.height}", encoding="ascii")
 
-    def refine_selection_mask(
-        self, source: Path, output: Path, feather_radius: float
-    ) -> None:
+    def refine_selection_mask(self, source: Path, output: Path, feather_radius: float) -> None:
         self._maybe_fail()
         info = self.inspect(source)
         output.write_text(f"{info.width}x{info.height}", encoding="ascii")
@@ -120,6 +119,7 @@ class FakeEngine(ImageMagickEngine):
         **kwargs: object,
     ) -> None:
         self._maybe_fail()
+        self.last_render_kwargs = dict(kwargs)
         output.write_text(f"{canvas_width}x{canvas_height};icc", encoding="ascii")
 
     def _maybe_fail(self) -> None:

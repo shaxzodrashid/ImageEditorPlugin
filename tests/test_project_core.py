@@ -229,3 +229,100 @@ def test_preview_and_exports_record_checksums(
     )
     assert manifest.revision == 2
     assert jpeg.parameters["chroma_subsampling"] == "4:2:0"
+
+
+def test_safe_zone_check_renders_overlay_and_reports_critical_layer_overflow(
+    tmp_path: Path,
+    service: tuple[ProjectService, str],
+    engine: FakeEngine,
+) -> None:
+    projects, workspace_id = service
+    projects.create(workspace_id, "poster.image-work", "Poster", 100, 100)
+    write_image(tmp_path / "critical.png", "20x10;icc")
+    manifest, asset, _, _ = projects.import_asset(
+        workspace_id, "poster.image-work", "critical.png", 0
+    )
+    manifest, inside, _ = projects.add_layer(
+        workspace_id,
+        "poster.image-work",
+        asset.id,
+        "Inside title",
+        20,
+        20,
+        1,
+        manifest.revision,
+    )
+    manifest, outside, _ = projects.add_layer(
+        workspace_id,
+        "poster.image-work",
+        asset.id,
+        "Unsafe CTA",
+        75,
+        85,
+        1,
+        manifest.revision,
+    )
+
+    checked, preview, checksum, result = projects.check_safe_zone(
+        workspace_id,
+        "poster.image-work",
+        800,
+        margin_pixels=10,
+        critical_layer_ids=[inside.id, outside.id],
+    )
+
+    assert checked.revision == manifest.revision
+    assert projects.inspect(workspace_id, "poster.image-work").revision == manifest.revision
+    assert preview.name == f"safe-zone-r{manifest.revision}-t10-r10-b10-l10.png"
+    assert preview.is_file() and len(checksum) == 64
+    assert engine.last_render_kwargs == {
+        "preview_max": 800,
+        "safe_zone_margins": (10, 10, 10, 10),
+    }
+    assert result["status"] == "fail"
+    assert result["geometry_passed"] is False
+    assert result["safe_zone"]["bounds"] == {"x": 10, "y": 10, "width": 80, "height": 80}
+    assert result["critical_layers_checked"][0]["inside_safe_zone"] is True
+    assert result["violations"] == [
+        {
+            "layer_id": outside.id,
+            "name": "Unsafe CTA",
+            "asset_id": asset.id,
+            "bounds": {"x": 75, "y": 85, "width": 20, "height": 10},
+            "inside_safe_zone": False,
+            "overflow_pixels": {"left": 0, "top": 0, "right": 5, "bottom": 5},
+        }
+    ]
+    assert result["visual_review_required"] is True
+
+
+def test_safe_zone_check_scales_template_inset_and_requires_a_valid_inner_area(
+    service: tuple[ProjectService, str],
+) -> None:
+    projects, workspace_id = service
+    projects.create(workspace_id, "portrait.image-work", "Portrait", 1080, 1350)
+
+    _, _, _, result = projects.check_safe_zone(workspace_id, "portrait.image-work", 1600)
+
+    assert result["status"] == "review_required"
+    assert result["safe_zone"]["margins"] == {
+        "top": 64,
+        "right": 65,
+        "bottom": 70,
+        "left": 65,
+    }
+    assert result["safe_zone"]["bounds"] == {
+        "x": 65,
+        "y": 64,
+        "width": 950,
+        "height": 1216,
+    }
+    assert result["safe_zone"]["margin_source"] == "scaled_reference_template"
+
+    with pytest.raises(EditorError, match="non-empty inner area"):
+        projects.check_safe_zone(
+            workspace_id,
+            "portrait.image-work",
+            1600,
+            margin_pixels=540,
+        )
