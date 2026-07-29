@@ -254,6 +254,10 @@
         "kind": {
           "$ref": "#/$defs/AssetKind"
         },
+        "role": {
+          "$ref": "#/$defs/AssetRole",
+          "default": "image"
+        },
         "path": {
           "title": "Path",
           "type": "string"
@@ -371,6 +375,14 @@
       "title": "AssetRecord",
       "type": "object"
     },
+    "AssetRole": {
+      "enum": [
+        "image",
+        "selection_mask"
+      ],
+      "title": "AssetRole",
+      "type": "string"
+    },
     "BlendMode": {
       "enum": [
         "normal"
@@ -423,6 +435,15 @@
       ],
       "title": "Canvas",
       "type": "object"
+    },
+    "ExecutionPolicy": {
+      "enum": [
+        "auto",
+        "cpu",
+        "accelerator"
+      ],
+      "title": "ExecutionPolicy",
+      "type": "string"
     },
     "ExportRecord": {
       "additionalProperties": false,
@@ -614,17 +635,196 @@
       ],
       "title": "OperationRecord",
       "type": "object"
+    },
+    "SelectionBounds": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        },
+        "width": {
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "SelectionBounds",
+      "type": "object"
+    },
+    "SelectionMethod": {
+      "enum": [
+        "auto",
+        "border",
+        "local_model"
+      ],
+      "title": "SelectionMethod",
+      "type": "string"
+    },
+    "SelectionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^sel_[0-9a-f-]{36}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "source_asset_id": {
+          "title": "Source Asset Id",
+          "type": "string"
+        },
+        "mask_asset_id": {
+          "title": "Mask Asset Id",
+          "type": "string"
+        },
+        "requested_method": {
+          "$ref": "#/$defs/SelectionMethod"
+        },
+        "resolved_method": {
+          "$ref": "#/$defs/SelectionMethod"
+        },
+        "execution_policy": {
+          "$ref": "#/$defs/ExecutionPolicy"
+        },
+        "runtime_profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Profile"
+        },
+        "execution_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Provider"
+        },
+        "cpu_fallback": {
+          "default": false,
+          "title": "Cpu Fallback",
+          "type": "boolean"
+        },
+        "fallback_reason": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fallback Reason"
+        },
+        "local_inference": {
+          "default": true,
+          "title": "Local Inference",
+          "type": "boolean"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "model_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Sha256"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "integer"
+        },
+        "bounds": {
+          "$ref": "#/$defs/SelectionBounds"
+        },
+        "coverage_ratio": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Coverage Ratio",
+          "type": "number"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_asset_id",
+        "mask_asset_id",
+        "requested_method",
+        "resolved_method",
+        "execution_policy",
+        "elapsed_ms",
+        "bounds",
+        "coverage_ratio",
+        "created_at"
+      ],
+      "title": "SelectionRecord",
+      "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "default": "1.1.0",
+      "default": "1.2.0",
       "title": "Schema Version",
       "type": "string"
     },
     "plugin_version": {
-      "default": "0.3.0",
+      "default": "0.4.0",
       "title": "Plugin Version",
       "type": "string"
     },
@@ -672,6 +872,14 @@
       },
       "maxItems": 256,
       "title": "Layers",
+      "type": "array"
+    },
+    "selections": {
+      "items": {
+        "$ref": "#/$defs/SelectionRecord"
+      },
+      "maxItems": 1024,
+      "title": "Selections",
       "type": "array"
     },
     "operations": {

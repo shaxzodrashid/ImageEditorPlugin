@@ -12,6 +12,11 @@ from mcp.types import ToolAnnotations
 
 from .ai_service import AICommit, AIService
 from .constants import (
+    BACKGROUND_MIN_FREE_DISK_BYTES,
+    BACKGROUND_MIN_FREE_MEMORY_BYTES,
+    BACKGROUND_MODEL_ID,
+    BACKGROUND_MODEL_SHA256,
+    BACKGROUND_OPERATION_TIMEOUT_SECONDS,
     DEFAULT_IMAGE_SEARCH_MODEL,
     MAX_ASSETS,
     MAX_COMPRESSED_INPUT_BYTES,
@@ -33,11 +38,13 @@ from .models import (
     AIProviderId,
     AspectPolicy,
     ContentPolicy,
+    ExecutionPolicy,
     ImageFormat,
     ImageSearchOptions,
     LayerDecompositionOptions,
     MetadataPolicy,
     ResizeFilter,
+    SelectionMethod,
     TransformTarget,
 )
 from .project import ProjectService
@@ -82,7 +89,7 @@ image_search_service = OpenAIImageSearchService(provider_http)
 
 @mcp.tool(annotations=READ_ONLY)
 def system_preflight() -> dict[str, Any]:
-    """Check ImageMagick 7 and required PNG, JPEG, and LCMS delegates."""
+    """Report current image engine, local selection runtime, and provider health."""
 
     def action() -> dict[str, Any]:
         temporary = tempfile.gettempdir()
@@ -106,6 +113,7 @@ def system_preflight() -> dict[str, Any]:
                     "free_bytes": disk.free,
                 },
                 "imagemagick": engine.preflight(),
+                "background_removal": projects.background_runtime.preflight(),
                 "ai_providers": {
                     "configured": providers.credential_status(),
                     "note": (
@@ -133,6 +141,8 @@ def system_capabilities() -> dict[str, Any]:
                     "resize",
                     "position",
                     "normal alpha composite",
+                    "local object selection",
+                    "local background removal",
                     "preview",
                     "validate",
                     "export",
@@ -144,12 +154,22 @@ def system_capabilities() -> dict[str, Any]:
                 ],
                 "deferred": [
                     "PSD/PSB",
-                    "masks",
+                    "editable per-layer masks",
                     "groups",
                     "filters",
                     "undo/redo",
                     "asynchronous jobs",
                 ],
+                "background_removal": {
+                    "local_only": True,
+                    "methods": [item.value for item in SelectionMethod],
+                    "execution_policies": [item.value for item in ExecutionPolicy],
+                    "model": {
+                        "id": BACKGROUND_MODEL_ID,
+                        "sha256": BACKGROUND_MODEL_SHA256,
+                    },
+                    "editable_per_layer_masks": False,
+                },
                 "limits": {
                     "compressed_input_bytes": MAX_COMPRESSED_INPUT_BYTES,
                     "decoded_pixels": MAX_DECODED_PIXELS,
@@ -161,6 +181,13 @@ def system_capabilities() -> dict[str, Any]:
                     "temporary_disk_bytes": 4 * 1024**3,
                     "threads": 2,
                     "timeout_seconds": OPERATION_TIMEOUT_SECONDS,
+                    "background_attempt_timeout_seconds": (
+                        BACKGROUND_OPERATION_TIMEOUT_SECONDS
+                    ),
+                    "background_minimum_memory_bytes": BACKGROUND_MIN_FREE_MEMORY_BYTES,
+                    "background_minimum_temporary_disk_bytes": (
+                        BACKGROUND_MIN_FREE_DISK_BYTES
+                    ),
                     "image_search_results": MAX_IMAGE_SEARCH_RESULTS,
                     "image_search_domains": MAX_IMAGE_SEARCH_DOMAINS,
                 },
@@ -431,6 +458,96 @@ def image_inspect(workspace_id: str, project_path: str, asset_id: str) -> dict[s
             "revision": manifest.revision,
             "outputs": {"asset": asset},
             "warnings": asset.warnings,
+        }
+
+    return run_enveloped(action)
+
+
+@mcp.tool(annotations=WRITE)
+def object_select(
+    workspace_id: str,
+    project_path: str,
+    source_asset_id: str,
+    expected_revision: int,
+    method: SelectionMethod = SelectionMethod.AUTO,
+    execution_policy: ExecutionPolicy = ExecutionPolicy.AUTO,
+    background_color: str | None = None,
+    tolerance_percent: float = 6,
+    feather_radius: float = 1,
+) -> dict[str, Any]:
+    """Create an immutable local-only foreground selection and grayscale mask."""
+
+    def action() -> dict[str, Any]:
+        result = projects.object_select(
+            workspace_id,
+            project_path,
+            source_asset_id,
+            expected_revision,
+            method,
+            execution_policy,
+            background_color,
+            tolerance_percent,
+            feather_radius,
+        )
+        return {
+            "project_id": result.manifest.project_id,
+            "revision": result.manifest.revision,
+            "operation_id": result.operation.id,
+            "outputs": {
+                "selection": result.selection,
+                "mask_asset": result.mask_asset,
+                "operation": result.operation,
+                "local_inference": True,
+            },
+            "warnings": result.warnings,
+        }
+
+    return run_enveloped(action)
+
+
+@mcp.tool(annotations=WRITE)
+def background_remove(
+    workspace_id: str,
+    project_path: str,
+    source_asset_id: str,
+    expected_revision: int,
+    selection_id: str | None = None,
+    method: SelectionMethod = SelectionMethod.AUTO,
+    execution_policy: ExecutionPolicy = ExecutionPolicy.AUTO,
+    background_color: str | None = None,
+    tolerance_percent: float = 6,
+    feather_radius: float = 1,
+    add_as_layer: bool = False,
+) -> dict[str, Any]:
+    """Remove an image background locally using a new or existing selection."""
+
+    def action() -> dict[str, Any]:
+        result = projects.background_remove(
+            workspace_id,
+            project_path,
+            source_asset_id,
+            expected_revision,
+            selection_id,
+            method,
+            execution_policy,
+            background_color,
+            tolerance_percent,
+            feather_radius,
+            add_as_layer,
+        )
+        return {
+            "project_id": result.manifest.project_id,
+            "revision": result.manifest.revision,
+            "operation_id": result.operation.id,
+            "outputs": {
+                "selection": result.selection,
+                "mask_asset": result.mask_asset,
+                "cutout_asset": result.cutout_asset,
+                "layer": result.layer,
+                "operation": result.operation,
+                "local_inference": True,
+            },
+            "warnings": result.warnings,
         }
 
     return run_enveloped(action)

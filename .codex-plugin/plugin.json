@@ -1,7 +1,7 @@
 {
   "name": "image-editor",
-  "version": "0.3.0+codex.20260727.1",
-  "description": "Source-attributed image search, provider-neutral generation, and project editing.",
+  "version": "0.4.0",
+  "description": "Local object selection, background removal, image search, generation, and editing.",
   "author": {
     "name": "Shakhzod"
   },
@@ -16,6 +16,8 @@
     "gemini",
     "fal",
     "compositing",
+    "background-removal",
+    "local-inference",
     "png",
     "jpeg"
   ],
@@ -24,7 +26,7 @@
   "interface": {
     "displayName": "Image Editor",
     "shortDescription": "Image search, AI generation, and reproducible editing",
-    "longDescription": "Find source-attributed web images with OpenAI Image Search, generate or conversationally edit with OpenAI, Google, or Fal models, and finish reproducibly with immutable assets and project revisions.",
+    "longDescription": "Select objects and remove backgrounds fully locally, find source-attributed web images, generate or edit through supported AI providers, and finish reproducibly with immutable assets and project revisions.",
     "developerName": "Shakhzod",
     "category": "Creativity",
     "capabilities": [
@@ -35,6 +37,7 @@
       "Search the web for current, source-attributed image references.",
       "Generate a professional image and preserve its provenance.",
       "Edit this image conversationally without overwriting the source.",
+      "Remove this image background locally without uploading it.",
       "Decompose this design into editable semantic layers."
     ]
   }

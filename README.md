@@ -7,6 +7,25 @@ creation, and deterministic, reproducible image work:
 generate/edit → immutable asset → layer/finish → preview → PNG/JPEG export
 ```
 
+## Local object selection and background removal
+
+`object_select` creates an immutable foreground selection and grayscale mask.
+`background_remove` applies a new or compatible saved selection and returns a transparent RGBA
+cutout, optionally added as a layer. Clean, uniform borders use ImageMagick without loading an ML
+model. Complex scenes use pinned `isnet-general-use` inference in a separate local worker.
+
+Selection and removal never send the image, mask, prompt, or telemetry to a provider. Install the
+optional local model runtime once (the setup itself downloads pinned packages and model weights):
+
+```powershell
+image-editor-background-model install isnet-general-use --profile auto
+```
+
+After installation, inference works offline. `auto` prefers a smoke-tested CUDA, DirectML, or
+OpenVINO provider and retries recoverable accelerator failures once on CPU. `cpu` forces CPU;
+`accelerator` requires the installed non-CPU provider. See
+[local background removal](docs/BACKGROUND_REMOVAL.md).
+
 ## Image discovery
 
 `image_search` uses OpenAI's hosted Image Search capability through the Responses API. It returns
@@ -43,9 +62,9 @@ See [AI provider configuration](docs/AI_PROVIDERS.md) for the full model and opt
 
 ## Current boundary
 
-The plugin accepts PNG and JPEG, uses ordered normal-blend pixel layers on an 8-bit sRGB
-canvas, and exports PNG or explicitly flattened JPEG. PSD/PSB, deterministic masks,
-groups, filters, undo/redo, and background jobs remain deferred.
+The plugin accepts PNG and JPEG, uses ordered normal-blend pixel layers and immutable selection
+masks on an 8-bit sRGB canvas, and exports PNG or explicitly flattened JPEG. PSD/PSB, editable
+per-layer masks, groups, filters, undo/redo, and background jobs remain deferred.
 
 ## Requirements
 

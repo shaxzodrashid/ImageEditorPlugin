@@ -25,6 +25,9 @@ class FakeEngine(ImageMagickEngine):
         super().__init__("fake-magick")
         self._version = "7.1.1-test"
         self.fail_next = False
+        self.fail_apply = False
+        self.edge_colors = [(255, 255, 255)] * 256
+        self.selection_coverage = 0.5
 
     def preflight(self) -> dict[str, object]:
         return {
@@ -67,6 +70,42 @@ class FakeEngine(ImageMagickEngine):
         output.write_text(f"{width}x{height};icc", encoding="ascii")
 
     def normalize(self, source: Path, output: Path) -> None:
+        self._maybe_fail()
+        info = self.inspect(source)
+        output.write_text(f"{info.width}x{info.height};icc", encoding="ascii")
+
+    def pixel_colors(
+        self, source: Path, coordinates: list[tuple[int, int]]
+    ) -> list[tuple[int, int, int]]:
+        return self.edge_colors[: len(coordinates)]
+
+    def selection_mask_border(
+        self,
+        source: Path,
+        output: Path,
+        background_rgb: tuple[int, int, int],
+        tolerance_percent: float,
+        feather_radius: float,
+    ) -> None:
+        self._maybe_fail()
+        info = self.inspect(source)
+        output.write_text(f"{info.width}x{info.height}", encoding="ascii")
+
+    def refine_selection_mask(
+        self, source: Path, output: Path, feather_radius: float
+    ) -> None:
+        self._maybe_fail()
+        info = self.inspect(source)
+        output.write_text(f"{info.width}x{info.height}", encoding="ascii")
+
+    def selection_metrics(self, mask: Path) -> tuple[float, tuple[int, int, int, int]]:
+        info = self.inspect(mask)
+        return self.selection_coverage, (1, 1, info.width - 2, info.height - 2)
+
+    def apply_selection_mask(self, source: Path, mask: Path, output: Path) -> None:
+        if self.fail_apply:
+            self.fail_apply = False
+            raise RuntimeError("forced mask application failure")
         self._maybe_fail()
         info = self.inspect(source)
         output.write_text(f"{info.width}x{info.height};icc", encoding="ascii")

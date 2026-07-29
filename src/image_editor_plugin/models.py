@@ -28,6 +28,11 @@ class AssetKind(StrEnum):
     GENERATED = "generated"
 
 
+class AssetRole(StrEnum):
+    IMAGE = "image"
+    SELECTION_MASK = "selection_mask"
+
+
 class ImageFormat(StrEnum):
     PNG = "PNG"
     JPEG = "JPEG"
@@ -64,6 +69,26 @@ class MetadataPolicy(StrEnum):
 
 class BlendMode(StrEnum):
     NORMAL = "normal"
+
+
+class SelectionMethod(StrEnum):
+    AUTO = "auto"
+    BORDER = "border"
+    LOCAL_MODEL = "local_model"
+
+
+class ExecutionPolicy(StrEnum):
+    AUTO = "auto"
+    CPU = "cpu"
+    ACCELERATOR = "accelerator"
+
+
+class RuntimeProfile(StrEnum):
+    AUTO = "auto"
+    CPU = "cpu"
+    CUDA = "cuda"
+    DIRECTML = "directml"
+    OPENVINO = "openvino"
 
 
 class AIProviderId(StrEnum):
@@ -302,6 +327,7 @@ class Canvas(StrictModel):
 class AssetRecord(StrictModel):
     id: str = Field(pattern=r"^ast_[0-9a-f-]{36}$")
     kind: AssetKind
+    role: AssetRole = AssetRole.IMAGE
     path: str
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     format: ImageFormat
@@ -323,6 +349,34 @@ class AssetRecord(StrictModel):
         if self.width * self.height > 100_000_000:
             raise ValueError("asset exceeds 100 million decoded pixels")
         return self
+
+
+class SelectionBounds(StrictModel):
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+
+
+class SelectionRecord(StrictModel):
+    id: str = Field(pattern=r"^sel_[0-9a-f-]{36}$")
+    source_asset_id: str
+    mask_asset_id: str
+    requested_method: SelectionMethod
+    resolved_method: SelectionMethod
+    execution_policy: ExecutionPolicy
+    runtime_profile: str | None = None
+    execution_provider: str | None = None
+    cpu_fallback: bool = False
+    fallback_reason: str | None = Field(default=None, max_length=128)
+    local_inference: bool = True
+    model_id: str | None = None
+    model_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    elapsed_ms: int = Field(ge=0)
+    bounds: SelectionBounds
+    coverage_ratio: float = Field(ge=0.0, le=1.0)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
 
 
 class LayerRecord(StrictModel):
@@ -372,6 +426,7 @@ class ProjectManifest(StrictModel):
     canvas: Canvas
     assets: list[AssetRecord] = Field(default_factory=list, max_length=MAX_ASSETS)
     layers: list[LayerRecord] = Field(default_factory=list, max_length=MAX_LAYERS)
+    selections: list[SelectionRecord] = Field(default_factory=list, max_length=MAX_ASSETS)
     operations: list[OperationRecord] = Field(default_factory=list)
     exports: list[ExportRecord] = Field(default_factory=list)
     ai_conversations: list[AIConversationRecord] = Field(default_factory=list)
@@ -388,8 +443,25 @@ class ProjectManifest(StrictModel):
         asset_ids = {asset.id for asset in self.assets}
         if any(layer.asset_id not in asset_ids for layer in self.layers):
             raise ValueError("layer references an unknown asset")
+        asset_roles = {asset.id: asset.role for asset in self.assets}
+        if any(asset_roles[layer.asset_id] is not AssetRole.IMAGE for layer in self.layers):
+            raise ValueError("pixel layer references a non-image asset")
         if len({layer.id for layer in self.layers}) != len(self.layers):
             raise ValueError("layer IDs must be unique")
+        if len({selection.id for selection in self.selections}) != len(self.selections):
+            raise ValueError("selection IDs must be unique")
+        for selection in self.selections:
+            if (
+                selection.source_asset_id not in asset_ids
+                or selection.mask_asset_id not in asset_ids
+            ):
+                raise ValueError("selection references an unknown asset")
+            mask = next(asset for asset in self.assets if asset.id == selection.mask_asset_id)
+            source = next(asset for asset in self.assets if asset.id == selection.source_asset_id)
+            if mask.role is not AssetRole.SELECTION_MASK:
+                raise ValueError("selection mask asset has the wrong role")
+            if (mask.width, mask.height) != (source.width, source.height):
+                raise ValueError("selection mask dimensions must match its source")
         conversation_ids = {conversation.id for conversation in self.ai_conversations}
         if len(conversation_ids) != len(self.ai_conversations):
             raise ValueError("AI conversation IDs must be unique")

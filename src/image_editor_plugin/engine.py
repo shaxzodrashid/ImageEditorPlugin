@@ -159,6 +159,134 @@ class ImageMagickEngine:
     def normalize(self, source: Path, output: Path) -> None:
         self.run([str(source), "-auto-orient", "-colorspace", "sRGB", "-depth", "8", str(output)])
 
+    def pixel_colors(
+        self, source: Path, coordinates: list[tuple[int, int]]
+    ) -> list[tuple[int, int, int]]:
+        self._validate_input(source)
+        template = "|".join(f"%[pixel:p{{{x},{y}}}]" for x, y in coordinates)
+        result = self.run(["identify", "-quiet", "-format", template, str(source)])
+        colors: list[tuple[int, int, int]] = []
+        for value in result.stdout.split("|"):
+            match = re.search(r"(?:s?rgb|gray)\(([^)]+)\)", value.casefold())
+            if not match:
+                raise EditorError("DECODE_FAILED", "Image edge colors could not be decoded.")
+            parts = [part.strip() for part in match.group(1).split(",")]
+            if len(parts) == 1:
+                parts *= 3
+            if len(parts) < 3:
+                raise EditorError("DECODE_FAILED", "Image edge colors could not be decoded.")
+            colors.append(
+                (
+                    _channel_to_byte(parts[0]),
+                    _channel_to_byte(parts[1]),
+                    _channel_to_byte(parts[2]),
+                )
+            )
+        return colors
+
+    def selection_mask_border(
+        self,
+        source: Path,
+        output: Path,
+        background_rgb: tuple[int, int, int],
+        tolerance_percent: float,
+        feather_radius: float,
+    ) -> None:
+        color = f"rgb({background_rgb[0]},{background_rgb[1]},{background_rgb[2]})"
+        args = [
+            str(source),
+            "-alpha",
+            "set",
+            "-bordercolor",
+            color,
+            "-border",
+            "1",
+            "-fuzz",
+            f"{tolerance_percent:g}%",
+            "-fill",
+            "none",
+            "-draw",
+            "color 0,0 floodfill",
+            "-shave",
+            "1x1",
+            "-alpha",
+            "extract",
+            "-morphology",
+            "Close",
+            "Disk:1",
+        ]
+        if feather_radius > 0:
+            args.extend(["-blur", f"0x{feather_radius:g}"])
+        args.extend(["-colorspace", "gray", "-depth", "8", str(output)])
+        self.run(args)
+
+    def refine_selection_mask(self, source: Path, output: Path, feather_radius: float) -> None:
+        args = [str(source), "-colorspace", "gray", "-morphology", "Close", "Disk:1"]
+        if feather_radius > 0:
+            args.extend(["-blur", f"0x{feather_radius:g}"])
+        args.extend(["-depth", "8", str(output)])
+        self.run(args)
+
+    def apply_selection_mask(self, source: Path, mask: Path, output: Path) -> None:
+        self.run(
+            [
+                str(source),
+                "-alpha",
+                "set",
+                "-write",
+                "mpr:selection-source",
+                "+delete",
+                "mpr:selection-source",
+                "-alpha",
+                "extract",
+                str(mask),
+                "-compose",
+                "Multiply",
+                "-composite",
+                "-write",
+                "mpr:combined-selection-alpha",
+                "+delete",
+                "mpr:selection-source",
+                "mpr:combined-selection-alpha",
+                "-alpha",
+                "off",
+                "-compose",
+                "CopyOpacity",
+                "-composite",
+                "-colorspace",
+                "sRGB",
+                "-depth",
+                "8",
+                str(output),
+            ]
+        )
+
+    def selection_metrics(self, mask: Path) -> tuple[float, tuple[int, int, int, int]]:
+        self._validate_input(mask)
+        mean_result = self.run(["identify", "-quiet", "-format", "%[fx:mean]", str(mask)])
+        try:
+            coverage = float(mean_result.stdout.strip())
+        except ValueError as exc:
+            raise EditorError("DECODE_FAILED", "Selection coverage could not be decoded.") from exc
+        geometry_result = self.run(
+            [
+                str(mask),
+                "-threshold",
+                "50%",
+                "-trim",
+                "-format",
+                "%X,%Y,%w,%h",
+                "info:",
+            ]
+        )
+        match = re.fullmatch(
+            r"\+(\d+),\+(\d+),(\d+),(\d+)", geometry_result.stdout.strip()
+        )
+        if not match:
+            raise EditorError("SELECTION_FAILED", "The foreground selection is empty.")
+        x, y, width, height = (int(value) for value in match.groups())
+        return coverage, (x, y, width, height)
+
     def render(
         self,
         canvas_width: int,
@@ -295,6 +423,14 @@ def _safe_environment() -> dict[str, str]:
 
 def _decimal(value: float) -> str:
     return f"{value:.6f}".rstrip("0").rstrip(".")
+
+
+def _channel_to_byte(value: str) -> int:
+    is_percent = value.endswith("%")
+    number = float(value.rstrip("%"))
+    if is_percent:
+        number *= 2.55
+    return max(0, min(255, round(number)))
 
 
 def _engine_remediation(stderr: str) -> tuple[str, ...]:

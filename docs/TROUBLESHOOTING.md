@@ -5,6 +5,27 @@
 Run `system_preflight`. Install ImageMagick 7 externally and confirm `magick -version`
 lists PNG, JPEG, and LCMS delegates. Restart the Codex session afterward.
 
+For complex-scene background removal, run the exact remediation under
+`outputs.background_removal`, normally:
+
+```powershell
+image-editor-background-model install isnet-general-use --profile auto
+```
+
+Installation may use the network. Selection/removal is offline afterward. Use `--profile cpu`,
+`cuda`, `directml`, or `openvino` only when deliberately selecting a profile.
+
+## `RESOURCE_LIMIT` or `OPERATION_TIMEOUT`
+
+Close memory-intensive programs, free at least 2 GiB of temporary disk, or use `method: border`
+for a clean background. Local model attempts are limited to 115 seconds and 1-4 worker threads.
+
+## Accelerator fallback warning
+
+The accelerator became unavailable, lost its driver/device, or exhausted memory. Under
+`execution_policy: auto`, partial output was discarded and one CPU retry completed. Inspect the
+actual provider and sanitized reason. Use `accelerator` when fallback must be forbidden.
+
 ## `ENGINE_FAILED`
 
 Use the returned remediation to distinguish an unsupported decoder, damaged input, or

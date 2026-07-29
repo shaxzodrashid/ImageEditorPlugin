@@ -5,7 +5,7 @@ All tools return one envelope with `ok`, `job_id: null`, identifiers, `outputs`,
 
 | Tool | Effect |
 |---|---|
-| `system_preflight` | Checks ImageMagick and reports provider credential presence only |
+| `system_preflight` | Checks ImageMagick, local selection runtime/resources, and credentials |
 | `system_capabilities` | Lists implemented features, deferred work, and limits |
 | `ai_model_catalog` | Lists model IDs, operations, formats, limits, and credential names |
 | `image_search` | Finds current source-attributed images through OpenAI hosted web search |
@@ -19,6 +19,8 @@ All tools return one envelope with `ok`, `job_id: null`, identifiers, `outputs`,
 | `project_validate` | Checks manifest, asset paths, and checksums |
 | `asset_import` | Copies a PNG/JPEG into immutable content-addressed storage |
 | `image_inspect` | Returns recorded image metadata and provenance |
+| `object_select` | Creates a local immutable foreground selection and mask |
+| `background_remove` | Applies a new/existing selection and creates a transparent cutout |
 | `layer_add` | Adds a topmost pixel layer |
 | `transform_crop` | Crops one layer or document bounds |
 | `transform_resize` | Resizes one layer or a document |
@@ -30,6 +32,13 @@ All tools return one envelope with `ok`, `job_id: null`, identifiers, `outputs`,
 Every project tool requires `workspace_id` and workspace-relative `project_path`.
 Mutations require `expected_revision`; stale callers receive `CONFLICT`. Document resize
 requires `content_policy: scale_all | canvas_only`. JPEG requires an explicit background.
+
+`object_select` and `background_remove` accept `method: auto | border | local_model` and
+`execution_policy: auto | cpu | accelerator`. Auto selection tries connected border removal first
+and dispatches to the installed local model only when the border is unsuitable. Results record
+requested/resolved method, runtime profile, actual provider, CPU fallback and reason, model hash,
+elapsed time, bounds, coverage, and `local_inference: true`. A supplied `selection_id` must belong
+to the same source. Selection, mask/cutout, optional layer, operation, and revision commit atomically.
 
 `image_search` does not require a workspace or mutate projects. Its optional `model` defaults to
 `gpt-5.6`, and the calling agent may choose another Responses model that supports `web_search`

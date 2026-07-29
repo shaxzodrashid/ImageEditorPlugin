@@ -4,19 +4,26 @@ import os
 import shutil
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
+from statistics import median
+from time import perf_counter
 from typing import Any
 
 from filelock import FileLock, Timeout
 
+from .background_runtime import BackgroundRuntime, RuntimeSelectionResult
 from .constants import (
     ALLOWED_INPUT_EXTENSIONS,
+    BACKGROUND_MODEL_ID,
     MAX_ASSETS,
     MAX_LAYERS,
+    PLUGIN_VERSION,
+    SCHEMA_VERSION,
 )
 from .engine import ImageInfo, ImageMagickEngine
-from .errors import EditorError, conflict, invalid, not_found
+from .errors import EditorError, conflict, invalid, not_found, selection_failed
 from .files import atomic_write_json, sha256_file, sha256_json
 from .ids import IdProvider, TimeProvider, new_id, utc_now
 from .models import (
@@ -28,8 +35,10 @@ from .models import (
     AspectPolicy,
     AssetKind,
     AssetRecord,
+    AssetRole,
     Canvas,
     ContentPolicy,
+    ExecutionPolicy,
     ExportRecord,
     ImageFormat,
     LayerRecord,
@@ -37,11 +46,45 @@ from .models import (
     OperationRecord,
     ProjectManifest,
     ResizeFilter,
+    SelectionBounds,
+    SelectionMethod,
+    SelectionRecord,
     TransformTarget,
 )
 from .security import WorkspaceRegistry, relative_to_root
 
 MANIFEST_NAME = "manifest.json"
+
+
+@dataclass(slots=True)
+class SelectionCommit:
+    manifest: ProjectManifest
+    selection: SelectionRecord
+    mask_asset: AssetRecord
+    operation: OperationRecord
+    warnings: list[str]
+
+
+@dataclass(slots=True)
+class BackgroundRemovalCommit:
+    manifest: ProjectManifest
+    selection: SelectionRecord
+    mask_asset: AssetRecord
+    cutout_asset: AssetRecord
+    layer: LayerRecord | None
+    operation: OperationRecord
+    warnings: list[str]
+
+
+@dataclass(slots=True)
+class _SelectionBuild:
+    selection: SelectionRecord
+    mask_asset: AssetRecord
+    new_paths: list[Path]
+    warnings: list[str]
+    engine_name: str
+    engine_version: str
+    deterministic: bool
 
 
 class ProjectService:
@@ -51,11 +94,13 @@ class ProjectService:
         engine: ImageMagickEngine,
         id_provider: IdProvider = new_id,
         time_provider: TimeProvider = utc_now,
+        background_runtime: BackgroundRuntime | None = None,
     ) -> None:
         self.registry = registry
         self.engine = engine
         self.id_provider = id_provider
         self.time_provider = time_provider
+        self.background_runtime = background_runtime or BackgroundRuntime()
 
     def create(
         self,
@@ -415,7 +460,9 @@ class ProjectService:
         with self._lock(project_dir):
             manifest = self._load(project_dir)
             self._expect_revision(manifest, expected_revision)
-            self._find_asset(manifest, asset_id)
+            asset = self._find_asset(manifest, asset_id)
+            if asset.role is not AssetRole.IMAGE:
+                raise invalid("Selection masks cannot be added as pixel layers.")
             if len(manifest.layers) >= MAX_LAYERS:
                 raise invalid("The project has reached its 256-layer limit.")
             layer = LayerRecord(
@@ -628,6 +675,430 @@ class ProjectService:
             self._commit(project_dir, manifest)
             return manifest, operation, derived_assets
 
+    def object_select(
+        self,
+        workspace_id: str,
+        project_path: str,
+        source_asset_id: str,
+        expected_revision: int,
+        method: SelectionMethod,
+        execution_policy: ExecutionPolicy,
+        background_color: str | None,
+        tolerance_percent: float,
+        feather_radius: float,
+    ) -> SelectionCommit:
+        project_dir = self._project_dir(workspace_id, project_path, must_exist=True)
+        with self._lock(project_dir):
+            manifest = self._load(project_dir)
+            self._expect_revision(manifest, expected_revision)
+            source = self._find_asset(manifest, source_asset_id)
+            if source.role is not AssetRole.IMAGE:
+                raise invalid("Object selection requires an image asset.")
+            build = self._build_selection(
+                project_dir,
+                manifest,
+                source,
+                method,
+                execution_policy,
+                background_color,
+                tolerance_percent,
+                feather_radius,
+            )
+            parameters = build.selection.parameters | {
+                "requested_method": method.value,
+                "resolved_method": build.selection.resolved_method.value,
+                "execution_policy": execution_policy.value,
+                "runtime_profile": build.selection.runtime_profile,
+                "execution_provider": build.selection.execution_provider,
+                "cpu_fallback": build.selection.cpu_fallback,
+                "fallback_reason": build.selection.fallback_reason,
+                "local_inference": True,
+            }
+            operation = self._operation(
+                "object_select",
+                [build.selection.id],
+                [source.id],
+                [build.mask_asset.id],
+                parameters,
+                build.warnings,
+                engine_name=build.engine_name,
+                engine_version=build.engine_version,
+                deterministic=build.deterministic,
+            )
+            manifest.assets.append(build.mask_asset)
+            manifest.selections.append(build.selection)
+            manifest.operations.append(operation)
+            try:
+                self._commit(project_dir, manifest)
+            except Exception:
+                _remove_files(build.new_paths)
+                raise
+            return SelectionCommit(
+                manifest, build.selection, build.mask_asset, operation, build.warnings
+            )
+
+    def background_remove(
+        self,
+        workspace_id: str,
+        project_path: str,
+        source_asset_id: str,
+        expected_revision: int,
+        selection_id: str | None,
+        method: SelectionMethod,
+        execution_policy: ExecutionPolicy,
+        background_color: str | None,
+        tolerance_percent: float,
+        feather_radius: float,
+        add_as_layer: bool,
+    ) -> BackgroundRemovalCommit:
+        project_dir = self._project_dir(workspace_id, project_path, must_exist=True)
+        with self._lock(project_dir):
+            manifest = self._load(project_dir)
+            self._expect_revision(manifest, expected_revision)
+            source = self._find_asset(manifest, source_asset_id)
+            if source.role is not AssetRole.IMAGE:
+                raise invalid("Background removal requires an image asset.")
+            new_paths: list[Path] = []
+            if selection_id is None:
+                build = self._build_selection(
+                    project_dir,
+                    manifest,
+                    source,
+                    method,
+                    execution_policy,
+                    background_color,
+                    tolerance_percent,
+                    feather_radius,
+                )
+                selection = build.selection
+                mask_asset = build.mask_asset
+                manifest.assets.append(mask_asset)
+                manifest.selections.append(selection)
+                new_paths.extend(build.new_paths)
+                warnings = list(build.warnings)
+                engine_name = build.engine_name
+                engine_version = build.engine_version
+                deterministic = build.deterministic
+            else:
+                if background_color is not None or tolerance_percent != 6 or feather_radius != 1:
+                    raise invalid(
+                        "Selection-generation options must be omitted when selection_id "
+                        "is supplied."
+                    )
+                selection = self._find_selection(manifest, selection_id)
+                if selection.source_asset_id != source.id:
+                    raise invalid("The selection belongs to a different source asset.")
+                mask_asset = self._find_asset(manifest, selection.mask_asset_id)
+                warnings = []
+                engine_name = "ImageMagick"
+                engine_version = self.engine.version
+                deterministic = True
+
+            required_assets = 1
+            if len(manifest.assets) + required_assets > MAX_ASSETS:
+                _remove_files(new_paths)
+                raise invalid("Background removal would exceed the 1,024-asset project limit.")
+            if add_as_layer and len(manifest.layers) >= MAX_LAYERS:
+                _remove_files(new_paths)
+                raise invalid("Background removal would exceed the 256-layer project limit.")
+
+            cutout_parameters = {
+                "selection_id": selection.id,
+                "mask_sha256": mask_asset.sha256,
+                "source_sha256": source.sha256,
+                "alpha_policy": "source_alpha_times_selection",
+            }
+            operation_hash = sha256_json(
+                {
+                    "operation": "background_remove",
+                    "parameters": cutout_parameters,
+                    "engine": "ImageMagick",
+                    "engine_version": self.engine.version,
+                }
+            )
+            relative = f"assets/derived/{operation_hash}.png"
+            destination = project_dir / relative
+            stage = self._stage_path(project_dir, ".png")
+            try:
+                try:
+                    self.engine.apply_selection_mask(
+                        self._asset_path(project_dir, source.path),
+                        self._asset_path(project_dir, mask_asset.path),
+                        stage,
+                    )
+                    info = self.engine.inspect(stage)
+                    if (info.width, info.height) != (
+                        source.width,
+                        source.height,
+                    ) or not info.has_alpha:
+                        raise selection_failed(
+                            "The transparent cutout failed output validation."
+                        )
+                    if not destination.exists():
+                        os.replace(stage, destination)
+                        new_paths.append(destination)
+                finally:
+                    stage.unlink(missing_ok=True)
+                cutout = self._asset_record(
+                    AssetKind.DERIVED,
+                    relative,
+                    destination,
+                    self.engine.inspect(destination),
+                    None,
+                    operation_hash,
+                )
+            except Exception:
+                _remove_files(new_paths)
+                raise
+            layer: LayerRecord | None = None
+            if add_as_layer:
+                layer = LayerRecord(
+                    id=self.id_provider("lyr"),
+                    name=f"{source.source_name or 'Subject'} cutout",
+                    asset_id=cutout.id,
+                )
+                manifest.layers.append(layer)
+            parameters = selection.parameters | cutout_parameters | {
+                "requested_method": selection.requested_method.value,
+                "resolved_method": selection.resolved_method.value,
+                "execution_policy": selection.execution_policy.value,
+                "runtime_profile": selection.runtime_profile,
+                "execution_provider": selection.execution_provider,
+                "cpu_fallback": selection.cpu_fallback,
+                "fallback_reason": selection.fallback_reason,
+                "local_inference": True,
+                "add_as_layer": add_as_layer,
+            }
+            operation = self._operation(
+                "background_remove",
+                [selection.id, *([layer.id] if layer else [])],
+                [source.id, mask_asset.id],
+                [*([mask_asset.id] if selection_id is None else []), cutout.id],
+                parameters,
+                warnings,
+                engine_name=engine_name,
+                engine_version=engine_version,
+                deterministic=deterministic,
+            )
+            manifest.assets.append(cutout)
+            manifest.operations.append(operation)
+            try:
+                self._commit(project_dir, manifest)
+            except Exception:
+                _remove_files(new_paths)
+                raise
+            return BackgroundRemovalCommit(
+                manifest, selection, mask_asset, cutout, layer, operation, warnings
+            )
+
+    def _build_selection(
+        self,
+        project_dir: Path,
+        manifest: ProjectManifest,
+        source: AssetRecord,
+        method: SelectionMethod,
+        execution_policy: ExecutionPolicy,
+        background_color: str | None,
+        tolerance_percent: float,
+        feather_radius: float,
+    ) -> _SelectionBuild:
+        if len(manifest.assets) >= MAX_ASSETS:
+            raise invalid("The project has reached its 1,024-asset limit.")
+        if not 0 <= tolerance_percent <= 25:
+            raise invalid("tolerance_percent must be between 0 and 25.")
+        if not 0 <= feather_radius <= 10:
+            raise invalid("feather_radius must be between 0 and 10 pixels.")
+        parsed_background = _parse_rgb(background_color) if background_color else None
+        source_path = self._asset_path(project_dir, source.path)
+        stage = self._stage_path(project_dir, ".png")
+        started = perf_counter()
+        resolved = method
+        runtime_result: RuntimeSelectionResult | None = None
+        warnings: list[str] = []
+        border_reason: str | None = None
+        try:
+            if method in {SelectionMethod.AUTO, SelectionMethod.BORDER}:
+                candidate, border_ratio = self._border_candidate(
+                    source_path,
+                    source.width,
+                    source.height,
+                    tolerance_percent,
+                    parsed_background,
+                )
+                if candidate is not None and border_ratio >= 0.90:
+                    self.engine.selection_mask_border(
+                        source_path, stage, candidate, tolerance_percent, feather_radius
+                    )
+                    coverage, _ = self.engine.selection_metrics(stage)
+                    if 0.05 <= coverage <= 0.95:
+                        resolved = SelectionMethod.BORDER
+                    else:
+                        border_reason = "foreground_coverage_out_of_range"
+                        stage.unlink(missing_ok=True)
+                else:
+                    border_reason = "border_not_uniform"
+                if method is SelectionMethod.BORDER and resolved is not SelectionMethod.BORDER:
+                    raise selection_failed(
+                        "The image border is not suitable for deterministic background removal.",
+                        "Use method=auto or method=local_model.",
+                    )
+            if resolved is not SelectionMethod.BORDER:
+                raw = self._stage_path(project_dir, ".png")
+                try:
+                    runtime_result = self.background_runtime.select_mask(
+                        source_path, raw, execution_policy
+                    )
+                    self.engine.refine_selection_mask(raw, stage, feather_radius)
+                finally:
+                    raw.unlink(missing_ok=True)
+                resolved = SelectionMethod.LOCAL_MODEL
+                warnings.extend(runtime_result.warnings)
+
+            coverage, bounds_tuple = self.engine.selection_metrics(stage)
+            if not 0.05 <= coverage <= 0.95:
+                raise selection_failed(
+                    "The foreground selection coverage is outside the safe 5-95% range."
+                )
+            info = self.engine.inspect(stage)
+            if info.format.upper() != "PNG" or (info.width, info.height) != (
+                source.width,
+                source.height,
+            ):
+                raise selection_failed("The selection mask failed output validation.")
+
+            elapsed = max(0, round((perf_counter() - started) * 1000))
+            if resolved is SelectionMethod.BORDER:
+                runtime_profile = "imagemagick"
+                execution_provider = None
+            else:
+                if runtime_result is None:
+                    raise selection_failed("The local selection runtime returned no result.")
+                runtime_profile = runtime_result.runtime_profile
+                execution_provider = runtime_result.execution_provider
+            cpu_fallback = False if runtime_result is None else runtime_result.cpu_fallback
+            fallback_reason = None if runtime_result is None else runtime_result.fallback_reason
+            model_id = None if runtime_result is None else BACKGROUND_MODEL_ID
+            model_sha256 = None if runtime_result is None else runtime_result.model_sha256
+            parameters: dict[str, Any] = {
+                "background_color": background_color,
+                "tolerance_percent": tolerance_percent,
+                "feather_radius": feather_radius,
+                "border_match_ratio": (
+                    border_ratio
+                    if method in {SelectionMethod.AUTO, SelectionMethod.BORDER}
+                    else None
+                ),
+                "border_fallback_reason": border_reason,
+            }
+            operation_hash = sha256_json(
+                {
+                    "input_sha256": source.sha256,
+                    "operation": "object_select",
+                    "requested_method": method.value,
+                    "resolved_method": resolved.value,
+                    "parameters": parameters,
+                    "engine": runtime_profile,
+                    "engine_version": (
+                        self.engine.version
+                        if runtime_result is None
+                        else runtime_result.model_sha256
+                    ),
+                }
+            )
+            relative = f"assets/derived/{operation_hash}.png"
+            destination = project_dir / relative
+            new_paths: list[Path] = []
+            if not destination.exists():
+                os.replace(stage, destination)
+                new_paths.append(destination)
+            try:
+                mask = self._asset_record(
+                    AssetKind.DERIVED,
+                    relative,
+                    destination,
+                    self.engine.inspect(destination),
+                    None,
+                    operation_hash,
+                    role=AssetRole.SELECTION_MASK,
+                )
+                x, y, width, height = bounds_tuple
+                selection = SelectionRecord(
+                    id=self.id_provider("sel"),
+                    source_asset_id=source.id,
+                    mask_asset_id=mask.id,
+                    requested_method=method,
+                    resolved_method=resolved,
+                    execution_policy=execution_policy,
+                    runtime_profile=runtime_profile,
+                    execution_provider=execution_provider,
+                    cpu_fallback=cpu_fallback,
+                    fallback_reason=fallback_reason,
+                    model_id=model_id,
+                    model_sha256=model_sha256,
+                    elapsed_ms=elapsed,
+                    bounds=SelectionBounds(x=x, y=y, width=width, height=height),
+                    coverage_ratio=coverage,
+                    parameters=parameters,
+                    created_at=self.time_provider(),
+                )
+                engine_name = "ImageMagick" if runtime_result is None else "rembg"
+                engine_version = (
+                    self.engine.version
+                    if runtime_result is None
+                    else f"2.0.77/{runtime_result.model_sha256[:12]}"
+                )
+                return _SelectionBuild(
+                    selection,
+                    mask,
+                    new_paths,
+                    warnings,
+                    engine_name,
+                    engine_version,
+                    runtime_result is None,
+                )
+            except Exception:
+                _remove_files(new_paths)
+                raise
+        finally:
+            stage.unlink(missing_ok=True)
+
+    def _border_candidate(
+        self,
+        source: Path,
+        width: int,
+        height: int,
+        tolerance_percent: float,
+        explicit: tuple[int, int, int] | None,
+    ) -> tuple[tuple[int, int, int] | None, float]:
+        corners = [(0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1)]
+        corner_colors = self.engine.pixel_colors(source, corners)
+        tolerance = round(tolerance_percent * 2.55)
+        candidate = explicit
+        if candidate is not None:
+            agreeing_corners = sum(
+                _colors_close(candidate, color, tolerance) for color in corner_colors
+            )
+            if agreeing_corners < 3:
+                return None, 0.0
+        if candidate is None:
+            agreeing: list[tuple[int, int, int]] = []
+            for color in corner_colors:
+                cluster = [item for item in corner_colors if _colors_close(color, item, tolerance)]
+                if len(cluster) >= 3:
+                    agreeing = cluster
+                    break
+            if not agreeing:
+                return None, 0.0
+            candidate = (
+                round(median(item[0] for item in agreeing)),
+                round(median(item[1] for item in agreeing)),
+                round(median(item[2] for item in agreeing)),
+            )
+        coordinates = _perimeter_samples(width, height, 64)
+        samples = self.engine.pixel_colors(source, coordinates)
+        matching = sum(_colors_close(candidate, color, tolerance) for color in samples)
+        return candidate, matching / len(samples)
+
     def render_preview(
         self,
         workspace_id: str,
@@ -775,11 +1246,13 @@ class ProjectService:
         operation_hash: str | None = None,
         warnings: list[str] | None = None,
         ai_provenance: AIProvenance | None = None,
+        role: AssetRole = AssetRole.IMAGE,
     ) -> AssetRecord:
         normalized_format = ImageFormat.PNG if info.format.upper() == "PNG" else ImageFormat.JPEG
         return AssetRecord(
             id=self.id_provider("ast"),
             kind=kind,
+            role=role,
             path=relative,
             sha256=sha256_file(path),
             format=normalized_format,
@@ -805,7 +1278,16 @@ class ProjectService:
         outputs: list[str],
         parameters: dict[str, Any],
         warnings: list[str] | None = None,
+        *,
+        engine_name: str | None = None,
+        engine_version: str | None = None,
+        deterministic: bool = True,
     ) -> OperationRecord:
+        project_operation = operation_type in {
+            "layer_add",
+            "composite_overlay",
+            "transform_position",
+        }
         return OperationRecord(
             id=self.id_provider("op"),
             type=operation_type,
@@ -813,17 +1295,17 @@ class ProjectService:
             input_asset_ids=inputs,
             output_asset_ids=outputs,
             parameters=parameters,
-            engine="ImageMagick"
-            if operation_type not in {"layer_add", "composite_overlay", "transform_position"}
-            else "project",
-            engine_version=self.engine.version
-            if operation_type not in {"layer_add", "composite_overlay", "transform_position"}
-            else "1",
+            engine=engine_name or ("project" if project_operation else "ImageMagick"),
+            engine_version=engine_version
+            or ("1" if project_operation else self.engine.version),
+            deterministic=deterministic,
             created_at=self.time_provider(),
             warnings=warnings or [],
         )
 
     def _commit(self, project_dir: Path, manifest: ProjectManifest) -> None:
+        manifest.schema_version = SCHEMA_VERSION
+        manifest.plugin_version = PLUGIN_VERSION
         manifest.revision += 1
         manifest.updated_at = self.time_provider()
         validated = ProjectManifest.model_validate(manifest.model_dump(mode="python"))
@@ -865,6 +1347,16 @@ class ProjectService:
         if asset is None:
             raise not_found("The requested asset does not exist.")
         return asset
+
+    @staticmethod
+    def _find_selection(manifest: ProjectManifest, selection_id: str) -> SelectionRecord:
+        selection = next(
+            (item for item in manifest.selections if item.id == selection_id),
+            None,
+        )
+        if selection is None:
+            raise not_found("The requested selection does not exist.")
+        return selection
 
     @staticmethod
     def _find_layer(manifest: ProjectManifest, layer_id: str) -> LayerRecord:
@@ -986,3 +1478,53 @@ def _safe_provider_parameters(value: dict[str, Any]) -> dict[str, Any]:
 def _remove_files(paths: list[Path]) -> None:
     for path in paths:
         path.unlink(missing_ok=True)
+
+
+def _parse_rgb(value: str) -> tuple[int, int, int]:
+    normalized = _validate_color(value, False)
+    named = {
+        "black": (0, 0, 0),
+        "white": (255, 255, 255),
+        "red": (255, 0, 0),
+        "green": (0, 128, 0),
+        "blue": (0, 0, 255),
+        "gray": (128, 128, 128),
+        "grey": (128, 128, 128),
+    }
+    if normalized in named:
+        return named[normalized]
+    value_hex = normalized[1:]
+    if len(value_hex) == 3:
+        value_hex = "".join(character * 2 for character in value_hex)
+    return (
+        int(value_hex[0:2], 16),
+        int(value_hex[2:4], 16),
+        int(value_hex[4:6], 16),
+    )
+
+
+def _colors_close(
+    left: tuple[int, int, int],
+    right: tuple[int, int, int],
+    tolerance: int,
+) -> bool:
+    return max(abs(left[index] - right[index]) for index in range(3)) <= tolerance
+
+
+def _perimeter_samples(width: int, height: int, target_per_edge: int) -> list[tuple[int, int]]:
+    horizontal_count = min(width, target_per_edge)
+    vertical_count = min(height, target_per_edge)
+    horizontal = {
+        round(index * (width - 1) / max(1, horizontal_count - 1))
+        for index in range(horizontal_count)
+    }
+    vertical = {
+        round(index * (height - 1) / max(1, vertical_count - 1))
+        for index in range(vertical_count)
+    }
+    return list(
+        dict.fromkeys(
+            [*((x, 0) for x in horizontal), *((x, height - 1) for x in horizontal)]
+            + [*((0, y) for y in vertical), *((width - 1, y) for y in vertical)]
+        )
+    )

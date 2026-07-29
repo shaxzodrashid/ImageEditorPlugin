@@ -15,8 +15,15 @@ logs/
 
 `manifest.json` is generated from the authoritative Pydantic model and records schema/plugin
 versions, project revision, 8-bit sRGB canvas settings, immutable assets, bottom-to-top
-pixel layers, append-only operations, AI conversations, and exports with checksums and
-provenance.
+pixel layers, immutable selections, append-only operations, AI conversations, and exports with
+checksums and provenance. Schema `1.2.0` adds backward-compatible `selections: []` and an asset
+`role` of `image` or `selection_mask`.
+
+Each selection links one immutable source asset to a same-dimension grayscale mask asset. It
+records the requested/resolved method, execution policy, installed runtime profile, provider
+actually used, fallback status/reason, local model ID/hash, elapsed time, foreground bounds and
+coverage, and safe parameters. Applying a selection never modifies the source: output alpha is
+the original alpha multiplied by the selection mask.
 
 Generated assets include provider, resolved model, operation, prompt, input/mask IDs,
 sanitized provider request ID, conversation ID, parent assets, non-secret parameters, and

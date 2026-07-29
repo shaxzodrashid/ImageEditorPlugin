@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add local-only `object_select` and `background_remove` with connected-border selection, pinned
+  isnet/rembg fallback, immutable masks/cutouts, reusable selections, and atomic revision commits.
+- Add isolated CPU/CUDA/DirectML/OpenVINO installation, runtime resource checks, actual provider
+  and fallback provenance, bounded subprocess execution, model hashing, and offline inference.
+- Bump the plugin to 0.4.0 and project schema to 1.2.0; editable per-layer masks remain deferred.
+
 - Add `image_search`, a read-only OpenAI Responses API Image Search integration with
   agent-selectable models, canonical image/source/thumbnail URLs, captions, supporting text,
   citations, domain filters, approximate location, live/cache-only control, and bounded output.

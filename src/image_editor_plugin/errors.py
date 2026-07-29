@@ -34,3 +34,15 @@ def configuration(message: str, *remediation: str) -> EditorError:
 
 def unsupported(message: str, *remediation: str) -> EditorError:
     return EditorError("UNSUPPORTED_FEATURE", message, False, remediation)
+
+
+def dependency(message: str, *remediation: str) -> EditorError:
+    return EditorError("DEPENDENCY_UNAVAILABLE", message, False, remediation)
+
+
+def resource_limit(message: str, *remediation: str) -> EditorError:
+    return EditorError("RESOURCE_LIMIT", message, True, remediation)
+
+
+def selection_failed(message: str, *remediation: str) -> EditorError:
+    return EditorError("SELECTION_FAILED", message, False, remediation)

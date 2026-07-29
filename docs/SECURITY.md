@@ -10,6 +10,14 @@
 - ImageMagick receives an internal argument array with `shell=False`; callers cannot provide
   an executable, switches, protocols, or shell fragments.
 - Engine limits are 1 GiB memory, 2 GiB map, 4 GiB temporary disk, two threads, and 120 seconds.
+- Background inference runs in an isolated pinned worker with `shell=False`, a sanitized
+  environment, 1-4 threads, RAM/disk checks, and a 115-second timeout per attempt.
+- Selection inference is local-only. It has no provider API or image-upload path and resolves the
+  verified local model without downloading at runtime. Only the explicit setup may use network.
+- The installer accepts fixed profiles/model, versions, index, URL, and SHA-256; it stages,
+  smoke-tests, and atomically activates a runtime while retaining the prior healthy runtime.
+- Only one ONNX Runtime distribution exists per worker. Under `auto`, recoverable accelerator
+  failures discard partial output and retry once on CPU; `accelerator` never silently falls back.
 - Existing exports require explicit overwrite authorization.
 - Mutations use a project lock, expected revision, staging, and atomic manifest replacement.
 - Responses and logs do not expose subprocess command lines, environment variables, or raw

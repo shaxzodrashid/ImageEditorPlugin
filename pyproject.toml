@@ -1,6 +1,6 @@
 [project]
 name = "image-editor-plugin"
-version = "0.3.0"
+version = "0.4.0"
 description = "Web-grounded image discovery, AI generation, and deterministic editing for Codex"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,6 +14,7 @@ dependencies = [
 [project.scripts]
 image-editor-mcp = "image_editor_plugin.server:main"
 image-editor-schema = "image_editor_plugin.schema_export:main"
+image-editor-background-model = "image_editor_plugin.background_model_cli:main"
 
 [dependency-groups]
 dev = [
