@@ -24,9 +24,10 @@ checksum verification and real smoke inference. One ONNX Runtime distribution is
 | DirectML | `onnxruntime-directml` | 1.24.4 | `DmlExecutionProvider` |
 | OpenVINO | `onnxruntime-openvino` | 1.24.1 | `OpenVINOExecutionProvider` |
 
-The worker uses managed Python 3.12. Its numerical dependency stack is pinned to NumPy 2.4.6,
+The worker uses managed Python 3.12. Its numerical dependency stack is pinned to NumPy 2.3.5,
 PyMatting 1.1.15, Numba 0.66.0, and llvmlite 0.48.0 so package resolution cannot select an
-obsolete llvmlite source release on newer host Python versions.
+obsolete llvmlite source release on newer host Python versions. NumPy remains on the 2.3 line
+because its Linux wheels retain the older x86 baseline needed by legacy CPUs and virtual machines.
 
 The pinned `rembg==2.0.77` model is `isnet-general-use`; its SHA-256 is
 `60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a`. AMD Linux ROCm is not a

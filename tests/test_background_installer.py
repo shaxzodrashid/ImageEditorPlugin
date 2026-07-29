@@ -1,13 +1,36 @@
 from __future__ import annotations
 
 import json
+import struct
 import subprocess
+import zlib
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from image_editor_plugin import background_model_cli as installer
+
+
+def test_smoke_png_is_structurally_valid() -> None:
+    data = installer.SMOKE_PNG
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    offset = 8
+    compressed = bytearray()
+    width = height = color_type = None
+    while offset < len(data):
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        chunk_type = data[offset + 4 : offset + 8]
+        payload = data[offset + 8 : offset + 8 + length]
+        checksum = struct.unpack(">I", data[offset + 8 + length : offset + 12 + length])[0]
+        assert zlib.crc32(chunk_type + payload) & 0xFFFFFFFF == checksum
+        if chunk_type == b"IHDR":
+            width, height, _, color_type = struct.unpack(">IIBB", payload[:10])
+        elif chunk_type == b"IDAT":
+            compressed.extend(payload)
+        offset += 12 + length
+    assert (width, height, color_type) == (8, 8, 2)
+    assert len(zlib.decompress(compressed)) == 8 * (1 + 8 * 3)
 
 
 def test_profile_install_uses_fixed_index_versions_and_one_onnx_distribution(
@@ -26,7 +49,7 @@ def test_profile_install_uses_fixed_index_versions_and_one_onnx_distribution(
     assert "https://pypi.org/simple" in install_command
     assert "rembg==2.0.77" in install_command
     assert "onnxruntime-directml==1.24.4" in install_command
-    assert "numpy==2.4.6" in install_command
+    assert "numpy==2.3.5" in install_command
     assert "pymatting==1.1.15" in install_command
     assert "numba==0.66.0" in install_command
     assert "llvmlite==0.48.0" in install_command

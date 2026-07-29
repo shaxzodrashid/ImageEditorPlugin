@@ -33,13 +33,14 @@ WORKER_PYTHON_VERSION = "3.12"
 # its real Python upper bound. That produces an attempted source build which fails on modern
 # Python even though compatible wheels exist for the pinned stack below.
 NUMERICAL_STACK = (
-    "numpy==2.4.6",
+    "numpy==2.3.5",
     "pymatting==1.1.15",
     "numba==0.66.0",
     "llvmlite==0.48.0",
 )
 SMOKE_PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z8DAwMDAxMDAwMAAAAwAAf4CB0kAAAAASUVORK5CYII="
+    "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAJ0lEQVR4nGP8//8/AzbAhFWUgYGB"
+    "BUIxMjLChSBm4NRBugQjya4CAG2ACQuzv6wnAAAAAElFTkSuQmCC"
 )
 
 
@@ -235,7 +236,7 @@ def _download_model(cache: Path) -> Path:
             BACKGROUND_MODEL_URL,
             follow_redirects=True,
             timeout=httpx.Timeout(15, read=120),
-            headers={"User-Agent": "image-editor-plugin-model-installer/0.4.1"},
+            headers={"User-Agent": "image-editor-plugin-model-installer/0.4.2"},
         ) as response:
             response.raise_for_status()
             with stage.open("wb") as output:

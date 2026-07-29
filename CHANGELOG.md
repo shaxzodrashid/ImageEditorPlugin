@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Replace the malformed embedded smoke-test PNG with a structurally validated image and pin NumPy
+  2.3.5 for compatibility with legacy x86 VPS CPUs so runtime activation reaches real ONNX
+  inference. Bump the plugin patch version to 0.4.2.
 - Fix local runtime installation by using a Python 3.12 worker and pinning the compatible
   NumPy/PyMatting/Numba/llvmlite stack instead of allowing uv to backtrack to an obsolete
   llvmlite source release. Installer failures now report a sanitized failing phase and reason.
