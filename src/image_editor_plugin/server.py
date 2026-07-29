@@ -146,6 +146,7 @@ def system_capabilities() -> dict[str, Any]:
                     "preview",
                     "validate",
                     "export",
+                    "poster safe-zone validation",
                     "AI image generation",
                     "conversational AI image editing",
                     "masked AI editing where supported",

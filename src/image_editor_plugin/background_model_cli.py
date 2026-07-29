@@ -260,7 +260,7 @@ def _download_model(cache: Path) -> Path:
             BACKGROUND_MODEL_URL,
             follow_redirects=True,
             timeout=httpx.Timeout(15, read=120),
-            headers={"User-Agent": "image-editor-plugin-model-installer/0.5.0"},
+            headers={"User-Agent": "image-editor-plugin-model-installer/0.5.1"},
         ) as response:
             response.raise_for_status()
             with stage.open("wb") as output:

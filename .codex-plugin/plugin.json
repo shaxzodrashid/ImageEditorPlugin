@@ -1,6 +1,6 @@
 {
   "name": "image-editor",
-  "version": "0.5.0+codex.20260729122354",
+  "version": "0.5.1+codex.20260729135629",
   "description": "Image search, generation, editing, background removal, and poster safe-zone review.",
   "author": {
     "name": "Shakhzod"

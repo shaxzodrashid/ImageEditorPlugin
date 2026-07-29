@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .constants import (
     BACKGROUND_MIN_FREE_DISK_BYTES,
@@ -99,9 +99,7 @@ class BackgroundRuntime:
             remediation.append("Close applications until at least 1.5 GiB of RAM is available.")
         if resources["temporary_disk_free_bytes"] < BACKGROUND_MIN_FREE_DISK_BYTES:
             remediation.append("Free at least 2 GiB in the temporary directory.")
-        if resources_sufficient and (
-            not accelerator_probe.get("ok") or not cpu_healthy
-        ):
+        if resources_sufficient and (not accelerator_probe.get("ok") or not cpu_healthy):
             remediation.append(background_install_command())
         return {
             "local_only": True,
@@ -259,9 +257,7 @@ class BackgroundRuntime:
             return None
         profile = value.get("profile")
         provider = value.get("execution_provider")
-        if profile not in {"cpu", "cuda", "directml", "openvino"} or not isinstance(
-            provider, str
-        ):
+        if profile not in {"cpu", "cuda", "directml", "openvino"} or not isinstance(provider, str):
             if required:
                 raise dependency("The local background-removal runtime descriptor is invalid.")
             return None
@@ -349,6 +345,7 @@ def local_resources() -> dict[str, int]:
 
 def _available_memory() -> int:
     if os.name == "nt":
+
         class MemoryStatus(ctypes.Structure):
             _fields_ = [
                 ("length", ctypes.c_ulong),
@@ -364,7 +361,8 @@ def _available_memory() -> int:
 
         status = MemoryStatus()
         status.length = ctypes.sizeof(MemoryStatus)
-        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+        windll = cast(Any, ctypes).windll
+        if windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
             return int(status.available_physical)
     if hasattr(os, "sysconf"):
         try:
