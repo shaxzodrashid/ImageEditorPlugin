@@ -79,6 +79,13 @@ never counts as final approval: the calling AI must open the returned preview an
 flattened content visually, because raster assets do not encode which pixels are semantically
 important.
 
+The bundled `$poster-create` skill orchestrates research, generation/editing, deterministic
+composition, and delivery for branded posters and carousels. It requires brand-book-first planning,
+source and identity review for real products, unique creative assets per placement, distinct layouts
+per poster, and pixel-exact alignment. Containment from `poster_safe_zone_check` is only one gate:
+planned edge-anchored logos/arrows must also be proven tangent to the returned safe-zone boundary
+with zero gap and zero overflow.
+
 ## Requirements
 
 - Python 3.12+
@@ -113,7 +120,7 @@ codex plugin marketplace add .
 codex plugin add image-editor@image-editor-local
 ```
 
-After changing plugin metadata or tools, reinstall the plugin and open a new Codex thread
+After changing plugin metadata, skills, or tools, reinstall the plugin and open a new Codex thread
 so the cache and MCP tool catalog refresh.
 
 Start with `system_preflight`, then register the narrowest filesystem root with

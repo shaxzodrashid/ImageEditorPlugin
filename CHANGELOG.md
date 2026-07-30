@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add the `poster-create` workflow skill for brand-book-first planning, source-verified imagery,
+  per-placement asset uniqueness, distinct carousel layouts, exact safe-zone anchoring, pixel-perfect
+  alignment, navigation restraint, and final render QA.
+- Bump the plugin minor version to 0.6.0; the project schema remains 1.2.0.
 - Create the Linux worker environment with a copied managed Python interpreter so strict runtime
   path containment accepts the standard venv layout. Bump the plugin patch version to 0.4.3.
 - Replace the malformed embedded smoke-test PNG with a structurally validated image and pin NumPy

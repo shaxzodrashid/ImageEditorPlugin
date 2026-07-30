@@ -1,0 +1,4 @@
+interface:
+  display_name: "Poster Create"
+  short_description: "Plan create and verify branded posters"
+  default_prompt: "Use $poster-create to plan, source, compose, validate, and export a professional branded poster or carousel."
