@@ -2,19 +2,35 @@
 
 Apply every gate to the rendered export, not only the editable project.
 
-## Brand, copy, and reality
+## Authority, brand, copy, and reality
 
+- Confirm the relevant brand-book example/template pages were visually inspected, not only text-extracted.
+- Confirm hard mandates, permitted choices, examples, locked templates, conflicts, and missing production assets were distinguished correctly.
 - Confirm copy, spelling, offer, product, dates, CTA, and legal text against the approved brief.
-- Confirm logo variant/clear space, typography, colors, spacing, grid, tone, dimensions, and safe zone against the brand book.
+- Confirm logo variant/clear space, typography, colors, spacing, grid, tone, dimensions, background, and safe zone against the authoritative design system.
 - Confirm every real product is the exact model/variant represented by the copy and source.
 - Confirm every external asset has a canonical source, rights basis, and identity check.
-- Confirm the requested creative style is followed; otherwise confirm photorealistic execution.
 
-## Creative uniqueness
+## Visual thesis and anti-generic quality
 
-- Compare every asset-ledger entry by source content, not filename. Fail any repeated creative asset or derivative reuse.
-- Compare every layout fingerprint pair. Fail repeated spatial skeletons, not just pixel-identical layouts.
-- Confirm every poster has a distinct communication purpose.
+- State the selected concept in one plain sentence. Fail a layer list or a string of style adjectives.
+- Confirm the visual communicates a specific part of this message before the supporting copy is read.
+- Confirm the hero is evidence, mechanism, result, or meaningful context—not an interchangeable beauty shot.
+- Explain the copy-subject relationship through scale, crop, overlap, direction, contrast, transformation, or sequence.
+- Apply the swap test: fail when another brand or unrelated product can replace the logo/hero without changing the concept.
+- Apply the one-second and thumbnail tests: subject, emotion, and primary question/benefit must survive at feed size.
+- Confirm one decisive focal point, intentional negative space, and a clear first/second/third reading beat.
+- Compare the export to the selected thumbnail and visual thesis. Fail concept drift caused by convenient assets or safe layout decisions.
+- Fail “generic image + detached headline” unless a deliberate type-led concept makes that separation the idea.
+
+## Campaign coherence and controlled variation
+
+- Confirm every poster has a distinct communication purpose and advances the ordered story.
+- Confirm two to four planned campaign invariants are visible across the set.
+- Compare neighboring layout fingerprints. Fail repeated static crops/placements and copy blocks; also fail unrelated visual worlds introduced only for difference.
+- Allow a repeated exact product or hero only when recorded as campaign continuity or product-truth necessity and its narrative/spatial role changes.
+- Compare source lineages, not filenames. Fail lazy derivative reuse and accidental repetition; do not fail deliberate continuity.
+- Inspect the contact sheet for pacing, density changes, hook-to-payoff progression, and a coherent material/lighting/illustration world.
 
 ## Safe-zone containment
 
@@ -69,8 +85,8 @@ Fail a `1 px` gap or overflow. When a brand mandates logo clear space, apply equ
 
 ## Visual and export review
 
-Inspect each rendered poster at 100% and mobile view for legibility, contrast, hierarchy, crop quality, clean masks, believable lighting/perspective/materials, and absence of clipping, stretching, low-resolution artifacts, accidental tangencies, or unsafe features.
+Inspect each rendered poster at 100%, mobile view, and one-second thumbnail for legibility, contrast, hierarchy, crop quality, clean masks, believable lighting/perspective/materials, and absence of clipping, stretching, low-resolution artifacts, accidental tangencies, or unsafe features.
 
-Inspect the ordered carousel contact sheet for narrative order, visual rhythm, repeated assets, repeated layouts, and monotony. Run `project_validate`, export deliberately, then reopen the final files and confirm dimensions, format, color behavior, order, filenames, and checksums.
+Inspect the ordered carousel contact sheet for narrative order, coherent variation, visual rhythm, generic slides, repeated static treatments, random discontinuities, and monotony. Run `project_validate`, export deliberately, then reopen the final files and confirm dimensions, format, color behavior, order, filenames, and checksums.
 
 Record each gate as **Pass**, **Fail**, or **Unverified** with evidence. Do not call the poster fully validated while a required gate is failed or unverified.
