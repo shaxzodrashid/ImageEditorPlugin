@@ -1,6 +1,6 @@
 {
   "name": "image-editor",
-  "version": "0.5.1+codex.20260729135629",
+  "version": "0.6.0+codex.20260730122306",
   "description": "Image search, generation, editing, background removal, and poster safe-zone review.",
   "author": {
     "name": "Shakhzod"
@@ -28,7 +28,7 @@
   "interface": {
     "displayName": "Image Editor",
     "shortDescription": "Image creation, editing, and poster validation",
-    "longDescription": "Select objects and remove backgrounds locally, find source-attributed web images, generate or edit through supported AI providers, validate poster safe zones, and finish reproducibly with immutable assets and project revisions.",
+    "longDescription": "Select objects and remove backgrounds locally, find source-attributed web images, generate or edit through supported AI providers, create brand-compliant posters and carousels, validate safe zones, and finish reproducibly with immutable assets and project revisions.",
     "developerName": "Shakhzod",
     "category": "Creativity",
     "capabilities": [
@@ -41,6 +41,7 @@
       "Edit this image conversationally without overwriting the source.",
       "Remove this image background locally without uploading it.",
       "Decompose this design into editable semantic layers.",
+      "Create a brand-compliant poster or carousel with unique assets, distinct layouts, and exact safe-zone validation.",
       "Check this poster's critical content against its safe zone before export."
     ]
   }

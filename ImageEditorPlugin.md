@@ -522,6 +522,8 @@ media-plugins/
 │       │   └── plugin.json
 │       ├── .mcp.json
 │       ├── skills/
+│       │   ├── image-search/
+│       │   │   └── SKILL.md
 │       │   ├── image-create/
 │       │   │   └── SKILL.md
 │       │   ├── image-edit/
@@ -529,6 +531,8 @@ media-plugins/
 │       │   ├── image-compose/
 │       │   │   └── SKILL.md
 │       │   ├── image-psd-export/
+│       │   │   └── SKILL.md
+│       │   ├── poster-create/
 │       │   │   └── SKILL.md
 │       │   └── image-deliver/
 │       │       └── SKILL.md
@@ -1750,7 +1754,22 @@ Workflow:
 6. Compare flattened render against the canonical project render.
 7. Record compatibility tier.
 
-### 19.5 `image-deliver`
+### 19.5 `poster-create`
+
+Used for professional branded posters and multi-poster carousels.
+
+Workflow:
+
+1. Read the brief, brand book, platform requirements, and supplied assets.
+2. Plan a distinct purpose, asset set, and layout fingerprint for every poster.
+3. Source current real-product imagery with provenance and rights review.
+4. Create one reproducible project per poster and compose at integer coordinates.
+5. Keep critical content contained and prove planned edge anchors have zero gap and overflow.
+6. Verify pixel alignment, asset/layout uniqueness, copy, identity, and visual quality.
+7. Inspect final-size renders and the ordered carousel contact sheet.
+8. Validate and export through `image-deliver`.
+
+### 19.6 `image-deliver`
 
 Used for final packaging.
 

@@ -1,6 +1,6 @@
 [project]
 name = "image-editor-plugin"
-version = "0.5.1"
+version = "0.6.0"
 description = "Web-grounded image discovery, AI generation, and deterministic editing for Codex"
 readme = "README.md"
 requires-python = ">=3.12"
