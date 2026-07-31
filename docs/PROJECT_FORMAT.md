@@ -34,12 +34,15 @@ The checked-in schema is [project-manifest.schema.json](../schemas/project-manif
 Derived identity hashes the input checksum, resolved parameters, engine name, and engine version.
 
 PSD delivery exports retain the current canonical raster-layer stack: each layer name, order,
-integer position, opacity, visibility, and alpha are written as a PSD pixel layer. A nontransparent
-canvas background is written as a bottom `Canvas Background` pixel layer. The PSD record stores
-`layered: true` and `validation: photoshopapi-roundtrip` only after the staged file has been reopened
-and its document/layer structure verified. It never represents native text, smart objects, groups,
-layer masks, filters, non-normal blending, or PSB; those features are not silently flattened into a
-PSD. PSD records also do not attest to native Adobe Photoshop or third-party-reader compatibility.
+integer position (including negative offsets), opacity, visibility, and alpha are written as a PSD
+pixel layer. A nontransparent canvas background is written as a bottom `Canvas Background` pixel
+layer. The PSD record stores `layered: true`, the actual `backend`, `validation`, and an optional
+`native_fallback_from` only after the staged file is structurally reopened. The required portable
+backend is `psd-tools` with `validation: psd-tools-roundtrip`; optional PhotoshopAPI acceleration
+is child-process-only and may fall back safely. It never represents native text, smart objects,
+groups, layer masks, filters, non-normal blending, or PSB; those features are not silently
+flattened into a PSD. PSD records also do not attest to native Adobe Photoshop or third-party-reader
+compatibility.
 
 Normal previews use `preview-r<revision>.png`. Safe-zone reviews use
 `safe-zone-r<revision>-t<top>-r<right>-b<bottom>-l<left>.png`. Both are derived, replaceable views that do not increment

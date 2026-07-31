@@ -32,6 +32,15 @@ Use the returned remediation to distinguish an unsupported decoder, damaged inpu
 resource exhaustion. Raw ImageMagick stderr remains private, but common failure classes
 are translated into safe, actionable hints.
 
+## PSD export falls back from PhotoshopAPI or fails on legacy Linux
+
+Layered PSD export works without PhotoshopAPI through the bundled `psd-tools` dependency. On Linux
+the portable backend is the deterministic default. Do not install the optional `photoshopapi` extra
+unless the deployed CPU is known to support the wheel's instruction baseline. If an explicitly
+requested native worker exits non-zero (including SIGILL), the plugin discards its staged output and
+retries safely with `psd-tools`; inspect export provenance for `backend`, `validation`, and
+`native_fallback_from`. Keep NumPy pinned at `2.3.5` for the supported legacy SSE2 hosts.
+
 ## `WORKSPACE_NOT_REGISTERED`
 
 Call `workspace_register` again. Registrations are intentionally session-local.

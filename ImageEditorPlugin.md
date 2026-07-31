@@ -61,7 +61,8 @@ structured, and reproducible image-production environment. It will combine:
   color adjustments, and filters;
 - layered project management;
 - PNG and JPEG delivery exports;
-- layered PSD and PSB export using the Python bindings of PhotoshopAPI;
+- layered PSD export using portable `psd-tools`, with PhotoshopAPI retained only as an optional
+  accelerated backend;
 - artifact provenance, checksums, logs, and validation reports.
 
 The plugin is an orchestration and workflow layer. It is not a replacement for
@@ -69,7 +70,7 @@ the underlying image-processing engines. Codex will call structured MCP tools,
 and those tools will use purpose-built engines:
 
 - ImageMagick for deterministic raster operations;
-- PhotoshopAPI for PSD and PSB structures;
+- psd-tools for portable PSD structures and optional PhotoshopAPI acceleration;
 - OpenAI hosted Image Search for external visual discovery;
 - provider adapters for AI image generation and semantic editing.
 
@@ -132,7 +133,8 @@ on hidden chat state.
 - Support layer opacity, blend modes, masks, and pixel-level composition.
 - Provide common photographic and graphic adjustments.
 - Export flattened PNG and JPEG deliverables.
-- Export layered PSD and PSB files through PhotoshopAPI.
+- Export layered PSD files through `psd-tools`; use PhotoshopAPI only as an isolated optional
+  acceleration backend on compatible CPUs.
 - Preserve ICC profile and color-space metadata where supported.
 - Generate previews, manifests, provenance records, checksums, and export
   reports.
@@ -486,9 +488,10 @@ interface will not expose a raw command string.
 
 ### 7.5 PSD and PSB exporter
 
-The exporter maps the canonical document to PhotoshopAPI objects. It is
-responsible for preserving supported layer properties and documenting every
-degradation.
+The portable exporter maps the canonical document to `psd-tools` pixel layers. It preserves the
+supported 8-bit sRGB raster contract and validates a structural reopen. PhotoshopAPI is optional
+acceleration only: probing and export occur in isolated child processes, and a native failure falls
+back to the portable exporter without affecting the MCP server or existing delivery.
 
 ### 7.6 Validation service
 
@@ -1576,7 +1579,7 @@ The exporter should preserve:
 The following may initially be rasterized:
 
 - deterministic adjustment history;
-- effects not representable by PhotoshopAPI;
+- effects not representable by the supported portable pixel-layer model;
 - complex generated composites;
 - unsupported text layout;
 - unsupported vector content.
@@ -1598,16 +1601,16 @@ Export must fail when:
 - the layer graph is invalid;
 - a bit depth cannot be represented safely;
 - a required color conversion fails;
-- the written file cannot be read back by PhotoshopAPI.
+- the written file cannot be read back by the selected structural validator.
 
 ### 17.4 Merged-image limitation
 
-PhotoshopAPI documents that its files do not contain a valid merged image used
-by some third-party applications. Therefore:
+Portable PSD exports are structurally validated but do not claim universal third-party rendering.
+Therefore:
 
 - `export-report.json` must include this compatibility warning;
 - the artifact package includes a flattened PNG preview;
-- initial acceptance targets Photoshop, not Lightroom or every PSD parser;
+- initial acceptance is structural, not a claim for Photoshop, Lightroom, or every PSD parser;
 - an optional native Photoshop round trip may later regenerate compatibility
   data for users with Photoshop installed.
 
@@ -1615,7 +1618,8 @@ by some third-party applications. Therefore:
 
 Proposed compatibility labels:
 
-- `photoshopapi-roundtrip`: written and read back successfully by PhotoshopAPI;
+- `psd-tools-roundtrip`: written and read back successfully by the portable backend;
+- `photoshopapi-roundtrip`: written and read back successfully by the optional native backend;
 - `photoshop-opened`: opened successfully in a supported Adobe Photoshop
   compatibility test;
 - `third-party-merged-preview`: a selected third-party reader displayed the
@@ -1944,7 +1948,7 @@ Integration tests cover:
 - file import and metadata inspection;
 - deterministic operation pipelines;
 - PNG and JPEG export;
-- PhotoshopAPI PSD and PSB write/read round trips;
+- psd-tools PSD write/read round trips and optional PhotoshopAPI fallback coverage;
 - provider adapter mocks;
 - OpenAI Image Search request/response mocks, filter validation, URL
   sanitization, and no-download assertions;
@@ -2011,7 +2015,8 @@ At minimum:
 
 - Windows x64;
 - Linux x64;
-- macOS where PhotoshopAPI wheels and dependencies support it.
+- macOS, Linux, and Windows through the portable backend; native acceleration only where its
+  optional wheels and CPU baseline are compatible.
 
 ---
 
@@ -2028,7 +2033,7 @@ Version 1 is accepted only when:
 - output dimensions match the request;
 - profiles and metadata behavior are reported;
 - AI generation and edit assets include provenance;
-- PSD opens through PhotoshopAPI round trip;
+- PSD opens through a recorded structural round trip, with `psd-tools` as the portable default;
 - PSD layer names and order match the project;
 - unsupported PSD features produce warnings or failures, never silent loss;
 - the export package contains final files, manifest, preview, provenance,
@@ -2121,7 +2126,7 @@ without losing deterministic project history.
 
 ### Phase 5: PSD and PSB
 
-- PhotoshopAPI preflight.
+- Portable `psd-tools` preflight and optional PhotoshopAPI child-process probe.
 - Layer mapping.
 - Groups.
 - Pixel masks.
@@ -2134,7 +2139,7 @@ without losing deterministic project history.
 - Compatibility fixtures.
 
 **Exit condition:** Supported layered projects export and round-trip through
-PhotoshopAPI with an accurate degradation report.
+the portable backend with an accurate degradation report.
 
 ### Phase 6: production packaging
 

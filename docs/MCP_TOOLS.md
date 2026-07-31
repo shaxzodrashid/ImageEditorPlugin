@@ -35,13 +35,17 @@ Mutations require `expected_revision`; stale callers receive `CONFLICT`. Documen
 requires `content_policy: scale_all | canvas_only`. JPEG requires an explicit background.
 
 `export_psd` writes the current ordered normal-blend pixel-layer stack as an 8-bit RGB PSD. It
-preserves layer names, bottom-to-top order, positions, opacity, visibility, alpha, and a solid
-canvas background as a bottom `Canvas Background` layer. The staged file is reopened with
-PhotoshopAPI before its atomic commit. PSD export accepts only `metadata_policy: strip`; it does
-not claim native Adobe Photoshop or third-party-reader compatibility. PSB, groups, editable masks,
-text layers, smart objects, blend modes other than normal, and native adjustments remain deferred.
+preserves layer names, bottom-to-top order, positions (including negative offsets), opacity,
+visibility, alpha, and a solid canvas background as a bottom `Canvas Background` layer. The staged
+file is created and reopened with the portable `psd-tools` backend before atomic commit. PSD export
+accepts only `metadata_policy: strip`; its record reports the actual `backend`, `validation`, and
+optional `native_fallback_from`. PhotoshopAPI is optional, never imported by MCP, and can only run
+in a bounded child; a native failure falls back to portable export. It does not claim native Adobe
+Photoshop or third-party-reader compatibility. PSB, groups, editable masks, text layers, smart
+objects, blend modes other than normal, and native adjustments remain deferred.
 
-The `photoshopapi-roundtrip` record is not a native Photoshop claim. The release-only
+The `psd-tools-roundtrip` record is not a native Photoshop claim. A rare optional
+`photoshopapi-roundtrip` record is also not a native Photoshop claim. The release-only
 `tests/test_photoshop_27_compatibility.py` gate must pass on an idle licensed Photoshop 27.8
 Windows host before an export is labelled `photoshop-opened`.
 

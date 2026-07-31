@@ -64,9 +64,13 @@ See [AI provider configuration](docs/AI_PROVIDERS.md) for the full model and opt
 
 The plugin accepts PNG and JPEG, uses ordered normal-blend pixel layers and immutable selection
 masks on an 8-bit sRGB canvas, and exports PNG, explicitly flattened JPEG, or a layered 8-bit RGB
-PSD. PSD export preserves the current project's pixel-layer names, bottom-to-top order, positions,
-opacity, visibility, alpha, and an opaque canvas background when present. Each staged PSD is
-reopened with PhotoshopAPI for structural validation before the atomic commit. Native Adobe
+PSD. PSD export preserves the current project's pixel-layer names, bottom-to-top order, positions
+(including negative offsets), opacity, visibility, alpha, and an opaque canvas background when
+present. The required `psd-tools` backend creates and structurally reopens each staged 8-bit
+RGB+alpha PSD before atomic commit. Its actual backend and validator are recorded in export
+provenance. PhotoshopAPI is an optional acceleration backend only; it is probe/run in an isolated
+child and any unavailable or CPU-incompatible native worker safely falls back to `psd-tools`.
+Linux is portable-first unless `IMAGE_EDITOR_PSD_BACKEND=native` is explicitly set. Native Adobe
 Photoshop and third-party reader compatibility are not verified. PSB, editable per-layer masks,
 groups, filters, undo/redo, and background jobs remain deferred.
 
@@ -124,6 +128,9 @@ uv run mypy
 uv run pytest
 ```
 
+The core lock pins NumPy to `2.3.5` for legacy Linux CPU compatibility. Do not loosen that pin
+without testing the release on the oldest supported CPU baseline.
+
 ImageMagick integration tests skip when preflight fails. Provider tests use fake HTTP and
 fake image results, so development verification never spends provider credits.
 
@@ -156,7 +163,7 @@ Start with `system_preflight`, then register the narrowest filesystem root with
 7. Render a preview and run `poster_safe_zone_check` for poster/social deliverables.
 8. Open the safe-zone preview, resolve every critical-content violation, then validate checksums.
 9. Export only after both visual safe-zone review and `project_validate` pass. `export_psd` uses
-   `metadata_policy: strip` only and reports its structural compatibility tier.
+   `metadata_policy: strip` only and reports its actual backend and structural compatibility tier.
 
 Existing exports are never replaced unless `overwrite: true` is supplied.
 

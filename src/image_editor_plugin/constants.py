@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-PLUGIN_VERSION = "0.7.0"
+PLUGIN_VERSION = "0.7.1"
 SCHEMA_VERSION = "1.3.0"
 
 SAFE_ZONE_REFERENCE_WIDTH = 1080

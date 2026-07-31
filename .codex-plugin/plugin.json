@@ -1,6 +1,6 @@
 {
   "name": "image-editor",
-  "version": "0.7.0+codex.20260731161812",
+  "version": "0.7.1+codex.20260731190000",
   "description": "Image search, generation, editing, layered PSD export, background removal, creative poster direction, and safe-zone review.",
   "author": {
     "name": "Shakhzod"

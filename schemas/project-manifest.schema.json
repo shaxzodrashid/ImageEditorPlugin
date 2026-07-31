@@ -825,7 +825,7 @@
       "type": "string"
     },
     "plugin_version": {
-      "default": "0.7.0",
+      "default": "0.7.1",
       "title": "Plugin Version",
       "type": "string"
     },

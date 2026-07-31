@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.7.1 - 2026-07-31
+
+- Make layered PSD export portable by default with `psd-tools`, including structural reopen
+  validation for 8-bit RGB+alpha pixel layers, names/order, offsets (including negative offsets),
+  opacity, visibility, canvas background, and source alpha.
+- Pin the core NumPy dependency to `2.3.5`, the known-compatible release for legacy SSE2 Linux
+  hosts, and add a lockfile regression guard against CPU-baseline dependency drift.
+- Move PhotoshopAPI to the `photoshopapi` optional extra. Its probe and export remain bounded,
+  isolated child processes: native import crashes (including SIGILL) safely fall back to the
+  portable exporter without corrupting staged or existing deliveries.
+- Record the actual PSD backend, structural validator, and any native fallback in export provenance.
+  Linux remains portable-first unless the optional native backend is explicitly requested.
+
 ## 0.7.0 - 2026-07-31
 
 - Add atomic layered PSD export for the canonical 8-bit sRGB pixel-layer model. It preserves layer

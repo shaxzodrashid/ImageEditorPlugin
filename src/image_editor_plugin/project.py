@@ -57,7 +57,7 @@ from .models import (
     SelectionRecord,
     TransformTarget,
 )
-from .psd_export import PSD_ROUNDTRIP_TIER, PsdExporter, PsdLayerSource
+from .psd_export import PsdExporter, PsdExportResult, PsdLayerSource
 from .security import WorkspaceRegistry, relative_to_root
 
 MANIFEST_NAME = "manifest.json"
@@ -1332,13 +1332,14 @@ class ProjectService:
         if image_format is ImageFormat.PSD and metadata_policy is not MetadataPolicy.STRIP:
             raise invalid("PSD export only supports metadata_policy=strip.")
         output.parent.mkdir(parents=True, exist_ok=True)
+        psd_result: PsdExportResult | None = None
         with self._lock(project_dir):
             manifest = self._load(project_dir)
             self._expect_revision(manifest, expected_revision)
             stage = self._stage_path(project_dir, output.suffix.casefold())
             try:
                 if image_format is ImageFormat.PSD:
-                    self.psd_exporter.export(
+                    psd_result = self.psd_exporter.export(
                         stage,
                         manifest.canvas.width,
                         manifest.canvas.height,
@@ -1367,11 +1368,15 @@ class ProjectService:
                 "metadata_policy": metadata_policy.value,
             }
             if image_format is ImageFormat.PSD:
+                if psd_result is None:
+                    raise RuntimeError("PSD export completed without backend provenance.")
                 parameters.update(
                     {
                         "layered": True,
                         "layer_count": len(manifest.layers),
-                        "validation": PSD_ROUNDTRIP_TIER,
+                        "backend": psd_result.backend,
+                        "validation": psd_result.validation,
+                        "native_fallback_from": psd_result.fallback_from,
                     }
                 )
             record = ExportRecord(
