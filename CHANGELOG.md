@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add a model-robust creative-direction stage to `poster-create`: rendered brand-example review,
+  four-to-six concept territories, three rough thumbnails, visual-thesis selection, anti-generic
+  tests, and concept-level iteration before production polish.
+- Replace absolute asset/layout uniqueness with controlled campaign coherence and variation.
+  Deliberate exact-product or continuity reuse is allowed; unrelated imagery, lazy derivatives,
+  generic beauty shots, and repeated static placements fail. Bump the plugin patch version to
+  0.6.1; the project schema remains 1.2.0.
 - Add the `poster-create` workflow skill for brand-book-first planning, source-verified imagery,
   per-placement asset uniqueness, distinct carousel layouts, exact safe-zone anchoring, pixel-perfect
   alignment, navigation restraint, and final render QA.
