@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.7.0 - 2026-07-31
+
 - Add atomic layered PSD export for the canonical 8-bit sRGB pixel-layer model. It preserves layer
   names/order/positions/opacity/visibility/alpha, writes a nontransparent canvas background as a
   named pixel layer, reopens staged files for structural validation, records compatibility limits,
@@ -21,6 +23,9 @@
   per-placement asset uniqueness, distinct carousel layouts, exact safe-zone anchoring, pixel-perfect
   alignment, navigation restraint, and final render QA.
 - Bump the plugin minor version to 0.6.0; the project schema remains 1.2.0.
+
+## 0.5.1 - 2026-07-29
+
 - Create the Linux worker environment with a copied managed Python interpreter so strict runtime
   path containment accepts the standard venv layout. Bump the plugin patch version to 0.4.3.
 - Replace the malformed embedded smoke-test PNG with a structurally validated image and pin NumPy

@@ -1,7 +1,7 @@
 {
   "name": "image-editor",
-  "version": "0.6.1+codex.20260730181400",
-  "description": "Image search, generation, editing, background removal, creative poster direction, and safe-zone review.",
+  "version": "0.7.0+codex.20260731161812",
+  "description": "Image search, generation, editing, layered PSD export, background removal, creative poster direction, and safe-zone review.",
   "author": {
     "name": "Shakhzod"
   },
@@ -23,14 +23,16 @@
     "creative-direction",
     "local-inference",
     "png",
-    "jpeg"
+    "jpeg",
+    "psd",
+    "layered-export"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Image Editor",
     "shortDescription": "Image creation, art direction, editing, and poster validation",
-    "longDescription": "Select objects and remove backgrounds locally, find source-attributed web images, generate or edit through supported AI providers, develop divergent poster concepts, select a brand-ownable art direction, create coherent posters and carousels, validate safe zones, and finish reproducibly with immutable assets and project revisions.",
+    "longDescription": "Select objects and remove backgrounds locally, find source-attributed web images, generate or edit through supported AI providers, export canonical projects as layered PSD files, develop divergent poster concepts, select a brand-ownable art direction, create coherent posters and carousels, validate safe zones, and finish reproducibly with immutable assets and project revisions.",
     "developerName": "Shakhzod",
     "category": "Creativity",
     "capabilities": [
@@ -43,6 +45,7 @@
       "Edit this image conversationally without overwriting the source.",
       "Remove this image background locally without uploading it.",
       "Decompose this design into editable semantic layers.",
+      "Export this canonical image project as a layered PSD file.",
       "Develop divergent visual concepts, select a strong art direction, and create a brand-compliant poster or carousel with controlled variation and exact safe-zone validation.",
       "Check this poster's critical content against its safe zone before export."
     ]
