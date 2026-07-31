@@ -50,6 +50,7 @@ from .models import (
 from .project import ProjectService
 from .providers import ProviderRegistry
 from .providers.http import HttpProviderClient
+from .psd_export import PSD_COMPATIBILITY_WARNING
 from .security import WorkspaceRegistry, relative_to_root
 
 READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True)
@@ -134,7 +135,7 @@ def system_capabilities() -> dict[str, Any]:
         lambda: {
             "outputs": {
                 "inputs": ["PNG", "JPEG"],
-                "outputs": ["PNG", "JPEG"],
+                "outputs": ["PNG", "JPEG", "PSD"],
                 "operations": [
                     "inspect",
                     "crop",
@@ -146,6 +147,7 @@ def system_capabilities() -> dict[str, Any]:
                     "preview",
                     "validate",
                     "export",
+                    "layered PSD export",
                     "poster safe-zone validation",
                     "AI image generation",
                     "conversational AI image editing",
@@ -154,7 +156,7 @@ def system_capabilities() -> dict[str, Any]:
                     "OpenAI web-grounded image search",
                 ],
                 "deferred": [
-                    "PSD/PSB",
+                    "PSB",
                     "editable per-layer masks",
                     "groups",
                     "filters",
@@ -839,6 +841,38 @@ def export_jpeg(
             "revision": manifest.revision,
             "operation_id": manifest.operations[-1].id,
             "outputs": {"export": record},
+        }
+
+    return run_enveloped(action)
+
+
+@mcp.tool(annotations=EXPORT_WRITE)
+def export_psd(
+    workspace_id: str,
+    project_path: str,
+    output_path: str,
+    expected_revision: int,
+    overwrite: bool = False,
+    metadata_policy: MetadataPolicy = MetadataPolicy.STRIP,
+) -> dict[str, Any]:
+    """Atomically export the current pixel-layer stack as an 8-bit RGB PSD."""
+
+    def action() -> dict[str, Any]:
+        manifest, record = projects.export(
+            workspace_id,
+            project_path,
+            output_path,
+            ImageFormat.PSD,
+            expected_revision,
+            overwrite,
+            metadata_policy=metadata_policy,
+        )
+        return {
+            "project_id": manifest.project_id,
+            "revision": manifest.revision,
+            "operation_id": manifest.operations[-1].id,
+            "outputs": {"export": record},
+            "warnings": [PSD_COMPATIBILITY_WARNING],
         }
 
     return run_enveloped(action)

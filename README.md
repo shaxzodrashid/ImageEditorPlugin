@@ -4,7 +4,7 @@ An installable Codex plugin for source-attributed visual discovery, provider-neu
 creation, and deterministic, reproducible image work:
 
 ```text
-generate/edit → immutable asset → layer/finish → preview → safe-zone review → PNG/JPEG export
+generate/edit → immutable asset → layer/finish → preview → safe-zone review → PNG/JPEG/PSD export
 ```
 
 ## Local object selection and background removal
@@ -63,8 +63,24 @@ See [AI provider configuration](docs/AI_PROVIDERS.md) for the full model and opt
 ## Current boundary
 
 The plugin accepts PNG and JPEG, uses ordered normal-blend pixel layers and immutable selection
-masks on an 8-bit sRGB canvas, and exports PNG or explicitly flattened JPEG. PSD/PSB, editable
-per-layer masks, groups, filters, undo/redo, and background jobs remain deferred.
+masks on an 8-bit sRGB canvas, and exports PNG, explicitly flattened JPEG, or a layered 8-bit RGB
+PSD. PSD export preserves the current project's pixel-layer names, bottom-to-top order, positions,
+opacity, visibility, alpha, and an opaque canvas background when present. Each staged PSD is
+reopened with PhotoshopAPI for structural validation before the atomic commit. Native Adobe
+Photoshop and third-party reader compatibility are not verified. PSB, editable per-layer masks,
+groups, filters, undo/redo, and background jobs remain deferred.
+
+Native Photoshop compatibility has a dedicated opt-in release gate. On an idle licensed Windows
+host with Photoshop **27.8**, run the following in PowerShell:
+
+```powershell
+$env:IMAGE_EDITOR_RUN_NATIVE_PHOTOSHOP_TEST = '1'
+uv run pytest --basetemp=.pytest-tmp tests/test_photoshop_27_compatibility.py
+```
+
+It starts Photoshop through COM, opens a layered export with error dialogs enabled, verifies its
+canvas and layer names, then closes without saving. The test fails on the wrong Photoshop version,
+an open/repair failure, or structural mismatch.
 
 ## Poster safe-zone validation
 
@@ -139,7 +155,8 @@ Start with `system_preflight`, then register the narrowest filesystem root with
 6. Apply exact crop, resize, and placement with deterministic tools.
 7. Render a preview and run `poster_safe_zone_check` for poster/social deliverables.
 8. Open the safe-zone preview, resolve every critical-content violation, then validate checksums.
-9. Export only after both visual safe-zone review and `project_validate` pass.
+9. Export only after both visual safe-zone review and `project_validate` pass. `export_psd` uses
+   `metadata_policy: strip` only and reports its structural compatibility tier.
 
 Existing exports are never replaced unless `overwrite: true` is supplied.
 
