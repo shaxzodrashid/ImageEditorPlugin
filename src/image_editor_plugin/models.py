@@ -36,6 +36,7 @@ class AssetRole(StrEnum):
 class ImageFormat(StrEnum):
     PNG = "PNG"
     JPEG = "JPEG"
+    PSD = "PSD"
 
 
 class ResizeFilter(StrEnum):

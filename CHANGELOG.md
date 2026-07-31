@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add atomic layered PSD export for the canonical 8-bit sRGB pixel-layer model. It preserves layer
+  names/order/positions/opacity/visibility/alpha, writes a nontransparent canvas background as a
+  named pixel layer, reopens staged files for structural validation, records compatibility limits,
+  and requires explicit overwrite authorization. Bump the plugin to 0.7.0 and the project schema
+  to 1.3.0.
+- Add an opt-in Adobe Photoshop 27.8 COM acceptance test. It opens a real layered export with
+  repair/error dialogs enabled, verifies its canvas/layers, and closes it without saving; this is the only gate
+  that can label an export `photoshop-opened`.
 - Add a model-robust creative-direction stage to `poster-create`: rendered brand-example review,
   four-to-six concept territories, three rough thumbnails, visual-thesis selection, anti-generic
   tests, and concept-level iteration before production polish.

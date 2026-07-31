@@ -20,6 +20,8 @@
   failures discard partial output and retry once on CPU; `accelerator` never silently falls back.
 - Existing exports require explicit overwrite authorization.
 - Mutations use a project lock, expected revision, staging, and atomic manifest replacement.
+- PhotoshopAPI PSD write/read validation runs in a bounded child process with captured output so
+  native library logs cannot corrupt the MCP stdio protocol.
 - Responses and logs do not expose subprocess command lines, environment variables, or raw
   engine stderr.
 - Provider endpoints and Fal media-download hosts are hardcoded allowlists; tools cannot

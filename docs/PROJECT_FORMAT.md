@@ -16,8 +16,8 @@ logs/
 `manifest.json` is generated from the authoritative Pydantic model and records schema/plugin
 versions, project revision, 8-bit sRGB canvas settings, immutable assets, bottom-to-top
 pixel layers, immutable selections, append-only operations, AI conversations, and exports with
-checksums and provenance. Schema `1.2.0` adds backward-compatible `selections: []` and an asset
-`role` of `image` or `selection_mask`.
+checksums and provenance. Schema `1.3.0` adds PSD to the export-format enum while retaining the
+prior `1.2.0` selection and asset-role fields.
 
 Each selection links one immutable source asset to a same-dimension grayscale mask asset. It
 records the requested/resolved method, execution policy, installed runtime profile, provider
@@ -32,6 +32,14 @@ for native continuity. API keys and authorization headers are never project data
 
 The checked-in schema is [project-manifest.schema.json](../schemas/project-manifest.schema.json).
 Derived identity hashes the input checksum, resolved parameters, engine name, and engine version.
+
+PSD delivery exports retain the current canonical raster-layer stack: each layer name, order,
+integer position, opacity, visibility, and alpha are written as a PSD pixel layer. A nontransparent
+canvas background is written as a bottom `Canvas Background` pixel layer. The PSD record stores
+`layered: true` and `validation: photoshopapi-roundtrip` only after the staged file has been reopened
+and its document/layer structure verified. It never represents native text, smart objects, groups,
+layer masks, filters, non-normal blending, or PSB; those features are not silently flattened into a
+PSD. PSD records also do not attest to native Adobe Photoshop or third-party-reader compatibility.
 
 Normal previews use `preview-r<revision>.png`. Safe-zone reviews use
 `safe-zone-r<revision>-t<top>-r<right>-b<bottom>-l<left>.png`. Both are derived, replaceable views that do not increment

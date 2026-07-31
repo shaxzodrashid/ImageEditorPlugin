@@ -33,6 +33,7 @@ EXPECTED = {
     "poster_safe_zone_check",
     "export_png",
     "export_jpeg",
+    "export_psd",
 }
 
 

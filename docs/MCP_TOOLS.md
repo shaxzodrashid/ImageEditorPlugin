@@ -28,11 +28,22 @@ All tools return one envelope with `ok`, `job_id: null`, identifiers, `outputs`,
 | `composite_overlay` | Adds a positioned normal-blend overlay |
 | `image_render_preview` | Writes a bounded PNG without changing revision |
 | `poster_safe_zone_check` | Renders a safe-zone overlay and checks critical layer bounds |
-| `export_png` / `export_jpeg` | Writes and records an atomic delivery export |
+| `export_png` / `export_jpeg` / `export_psd` | Writes and records an atomic delivery export |
 
 Every project tool requires `workspace_id` and workspace-relative `project_path`.
 Mutations require `expected_revision`; stale callers receive `CONFLICT`. Document resize
 requires `content_policy: scale_all | canvas_only`. JPEG requires an explicit background.
+
+`export_psd` writes the current ordered normal-blend pixel-layer stack as an 8-bit RGB PSD. It
+preserves layer names, bottom-to-top order, positions, opacity, visibility, alpha, and a solid
+canvas background as a bottom `Canvas Background` layer. The staged file is reopened with
+PhotoshopAPI before its atomic commit. PSD export accepts only `metadata_policy: strip`; it does
+not claim native Adobe Photoshop or third-party-reader compatibility. PSB, groups, editable masks,
+text layers, smart objects, blend modes other than normal, and native adjustments remain deferred.
+
+The `photoshopapi-roundtrip` record is not a native Photoshop claim. The release-only
+`tests/test_photoshop_27_compatibility.py` gate must pass on an idle licensed Photoshop 27.8
+Windows host before an export is labelled `photoshop-opened`.
 
 `poster_safe_zone_check` is read-only with respect to the manifest and writes only a replaceable
 preview under `previews/`. By default it scales the supplied 1080×1350 reference's measured

@@ -57,6 +57,7 @@ from .models import (
     SelectionRecord,
     TransformTarget,
 )
+from .psd_export import PSD_ROUNDTRIP_TIER, PsdExporter, PsdLayerSource
 from .security import WorkspaceRegistry, relative_to_root
 
 MANIFEST_NAME = "manifest.json"
@@ -101,12 +102,14 @@ class ProjectService:
         id_provider: IdProvider = new_id,
         time_provider: TimeProvider = utc_now,
         background_runtime: BackgroundRuntime | None = None,
+        psd_exporter: PsdExporter | None = None,
     ) -> None:
         self.registry = registry
         self.engine = engine
         self.id_provider = id_provider
         self.time_provider = time_provider
         self.background_runtime = background_runtime or BackgroundRuntime()
+        self.psd_exporter = psd_exporter or PsdExporter()
 
     def create(
         self,
@@ -1313,7 +1316,11 @@ class ProjectService:
     ) -> tuple[ProjectManifest, ExportRecord]:
         project_dir = self._project_dir(workspace_id, project_path, must_exist=True)
         output = self.registry.resolve(workspace_id, output_path, must_exist=False)
-        expected_suffixes = {".png"} if image_format is ImageFormat.PNG else {".jpg", ".jpeg"}
+        expected_suffixes = {
+            ImageFormat.PNG: {".png"},
+            ImageFormat.JPEG: {".jpg", ".jpeg"},
+            ImageFormat.PSD: {".psd"},
+        }[image_format]
         if output.suffix.casefold() not in expected_suffixes:
             raise invalid(f"{image_format.value} export path has the wrong extension.")
         if output.exists() and not overwrite:
@@ -1322,26 +1329,51 @@ class ProjectService:
             if quality is None or not 1 <= quality <= 100:
                 raise invalid("JPEG quality must be between 1 and 100.")
             background = _validate_color(background or "", False)
+        if image_format is ImageFormat.PSD and metadata_policy is not MetadataPolicy.STRIP:
+            raise invalid("PSD export only supports metadata_policy=strip.")
         output.parent.mkdir(parents=True, exist_ok=True)
         with self._lock(project_dir):
             manifest = self._load(project_dir)
             self._expect_revision(manifest, expected_revision)
             stage = self._stage_path(project_dir, output.suffix.casefold())
             try:
-                self.engine.render(
-                    manifest.canvas.width,
-                    manifest.canvas.height,
-                    manifest.canvas.background,
-                    self._render_layers(project_dir, manifest),
-                    stage,
-                    jpeg_quality=quality if image_format is ImageFormat.JPEG else None,
-                    jpeg_background=background,
-                    metadata_strip=metadata_policy is MetadataPolicy.STRIP,
-                )
+                if image_format is ImageFormat.PSD:
+                    self.psd_exporter.export(
+                        stage,
+                        manifest.canvas.width,
+                        manifest.canvas.height,
+                        manifest.canvas.background,
+                        self._psd_layers(project_dir, manifest),
+                    )
+                else:
+                    self.engine.render(
+                        manifest.canvas.width,
+                        manifest.canvas.height,
+                        manifest.canvas.background,
+                        self._render_layers(project_dir, manifest),
+                        stage,
+                        jpeg_quality=quality if image_format is ImageFormat.JPEG else None,
+                        jpeg_background=background,
+                        metadata_strip=metadata_policy is MetadataPolicy.STRIP,
+                    )
                 self._commit_export_file(stage, output, overwrite)
             finally:
                 stage.unlink(missing_ok=True)
             root = self.registry.root(workspace_id)
+            parameters: dict[str, Any] = {
+                "quality": quality,
+                "chroma_subsampling": "4:2:0" if image_format is ImageFormat.JPEG else None,
+                "background": background,
+                "metadata_policy": metadata_policy.value,
+            }
+            if image_format is ImageFormat.PSD:
+                parameters.update(
+                    {
+                        "layered": True,
+                        "layer_count": len(manifest.layers),
+                        "validation": PSD_ROUNDTRIP_TIER,
+                    }
+                )
             record = ExportRecord(
                 id=self.id_provider("exp"),
                 format=image_format,
@@ -1349,12 +1381,7 @@ class ProjectService:
                 sha256=sha256_file(output),
                 width=manifest.canvas.width,
                 height=manifest.canvas.height,
-                parameters={
-                    "quality": quality,
-                    "chroma_subsampling": "4:2:0" if image_format is ImageFormat.JPEG else None,
-                    "background": background,
-                    "metadata_policy": metadata_policy.value,
-                },
+                parameters=parameters,
                 created_at=self.time_provider(),
             )
             operation = self._operation(
@@ -1580,6 +1607,21 @@ class ProjectService:
             )
             for layer in manifest.layers
             if layer.visible
+        ]
+
+    def _psd_layers(self, project_dir: Path, manifest: ProjectManifest) -> list[PsdLayerSource]:
+        return [
+            PsdLayerSource(
+                source=self._asset_path(
+                    project_dir, self._find_asset(manifest, layer.asset_id).path
+                ),
+                name=layer.name,
+                x=layer.x,
+                y=layer.y,
+                opacity=layer.opacity,
+                visible=layer.visible,
+            )
+            for layer in manifest.layers
         ]
 
     @contextmanager

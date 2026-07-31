@@ -5,6 +5,22 @@ on:
   pull_request:
 
 jobs:
+  linux-psd-contract:
+    name: Linux PSD contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.7"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked --dev
+      - run: uv run pytest tests/test_psd_export.py
+      # Native Photoshop 27.8 verification is intentionally run only on a dedicated licensed host.
+
   test:
     strategy:
       fail-fast: false
