@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
@@ -70,6 +71,106 @@ class MetadataPolicy(StrEnum):
 
 class BlendMode(StrEnum):
     NORMAL = "normal"
+
+
+class TextFontFamily(StrEnum):
+    """Portable font families supplied by the local rich-text renderer."""
+
+    SANS = "sans"
+    SERIF = "serif"
+    MONO = "mono"
+
+
+class TextAlignment(StrEnum):
+    LEFT = "left"
+    CENTER = "center"
+    RIGHT = "right"
+
+
+_HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$")
+
+
+class TextGradientStop(StrictModel):
+    color: str = Field(description="An opaque or alpha hex color: #RRGGBB or #RRGGBBAA.")
+    position: float = Field(ge=0.0, le=1.0)
+
+    @field_validator("color")
+    @classmethod
+    def valid_color(cls, value: str) -> str:
+        if not _HEX_COLOR.fullmatch(value):
+            raise ValueError("color must be #RRGGBB or #RRGGBBAA")
+        return value.upper()
+
+
+class TextGradient(StrictModel):
+    """A linear gradient rendered inside a single text run's glyphs."""
+
+    stops: list[TextGradientStop] = Field(min_length=2, max_length=8)
+    angle_degrees: float = Field(
+        default=0.0,
+        ge=0.0,
+        lt=360.0,
+        description="0 is left-to-right; angles increase clockwise.",
+    )
+
+    @model_validator(mode="after")
+    def increasing_stops(self) -> TextGradient:
+        positions = [item.position for item in self.stops]
+        if positions != sorted(positions) or len(set(positions)) != len(positions):
+            raise ValueError("gradient stop positions must be strictly increasing")
+        return self
+
+
+class RichTextStyle(StrictModel):
+    font_family: TextFontFamily = TextFontFamily.SANS
+    font_size: int = Field(default=64, ge=4, le=512)
+    color: str | None = None
+    gradient: TextGradient | None = None
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+    strikethrough: bool = False
+
+    @field_validator("color")
+    @classmethod
+    def valid_optional_color(cls, value: str | None) -> str | None:
+        if value is not None and not _HEX_COLOR.fullmatch(value):
+            raise ValueError("color must be #RRGGBB or #RRGGBBAA")
+        return value.upper() if value is not None else None
+
+    @model_validator(mode="after")
+    def require_one_fill(self) -> RichTextStyle:
+        if self.color is None and self.gradient is None:
+            self.color = "#000000"
+        if self.color is not None and self.gradient is not None:
+            raise ValueError("choose either color or gradient for a text run")
+        return self
+
+
+class RichTextRun(StrictModel):
+    text: str = Field(min_length=1, max_length=4_096)
+    style: RichTextStyle = Field(default_factory=RichTextStyle)
+
+
+class RichTextLayerOptions(StrictModel):
+    """Validated rich text that is rasterized into one transparent PNG layer."""
+
+    runs: list[RichTextRun] = Field(min_length=1, max_length=200)
+    max_width: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_DIMENSION,
+        description="Optional wrapping width in pixels before padding.",
+    )
+    alignment: TextAlignment = TextAlignment.LEFT
+    line_spacing: float = Field(default=1.2, ge=0.8, le=3.0)
+    padding: int = Field(default=2, ge=0, le=256)
+
+    @model_validator(mode="after")
+    def bounded_text(self) -> RichTextLayerOptions:
+        if sum(len(item.text) for item in self.runs) > 16_000:
+            raise ValueError("rich text cannot exceed 16,000 characters")
+        return self
 
 
 class SelectionMethod(StrEnum):

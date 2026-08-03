@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-08-01
+
+- Add `text_layer_create`: deterministic rich text rasterization into a transparent PNG asset and
+  separate positionable pixel layer. Ordered runs support portable sans/serif/mono fonts, size,
+  solid colors or linear gradients, bold, italic, underline, strikethrough, wrapping, alignment,
+  and line spacing.
+- Preserve the resulting text layer in project previews, safe-zone validation, PNG/JPEG delivery,
+  and layered PSD export. PSD text remains a raster pixel layer, not a native Photoshop Type layer.
+
 ## 0.7.1 - 2026-07-31
 
 - Make layered PSD export portable by default with `psd-tools`, including structural reopen

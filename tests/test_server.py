@@ -22,6 +22,7 @@ EXPECTED_TOOLS = {
     "object_select",
     "background_remove",
     "layer_add",
+    "text_layer_create",
     "transform_crop",
     "transform_resize",
     "transform_position",

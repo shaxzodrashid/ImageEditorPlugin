@@ -13,6 +13,7 @@ from image_editor_plugin.models import (
     ImageFormat,
     MetadataPolicy,
     ResizeFilter,
+    RichTextLayerOptions,
     TransformTarget,
 )
 from image_editor_plugin.project import ProjectService
@@ -170,6 +171,57 @@ def test_failed_derived_operation_keeps_prior_manifest(
             before,
         )
     assert projects.inspect(workspace_id, "safe.image-work").revision == before
+
+
+def test_rich_text_creates_a_transparent_positionable_pixel_layer(
+    service: tuple[ProjectService, str],
+) -> None:
+    projects, workspace_id = service
+    projects.create(workspace_id, "text.image-work", "Text", 1080, 1350)
+    text = RichTextLayerOptions.model_validate(
+        {
+            "runs": [
+                {"text": "Summer ", "style": {"font_size": 72, "color": "#111827"}},
+                {
+                    "text": "Sale",
+                    "style": {
+                        "font_size": 72,
+                        "bold": True,
+                        "underline": True,
+                        "gradient": {
+                            "angle_degrees": 0,
+                            "stops": [
+                                {"position": 0, "color": "#EC4899"},
+                                {"position": 1, "color": "#8B5CF6"},
+                            ],
+                        },
+                    },
+                },
+            ],
+            "padding": 4,
+        }
+    )
+
+    manifest, asset, layer, operation = projects.create_text_layer(
+        workspace_id,
+        "text.image-work",
+        "Summer sale title",
+        text,
+        80,
+        120,
+        0.75,
+        0,
+    )
+
+    assert manifest.revision == 1
+    assert asset.kind.value == "derived"
+    assert asset.format.value == "PNG"
+    assert asset.has_alpha is True
+    assert asset.width > 100 and asset.height > 60
+    assert layer.asset_id == asset.id
+    assert (layer.x, layer.y, layer.opacity) == (80, 120, 0.75)
+    assert operation.type == "text_layer_create"
+    assert projects.validate(workspace_id, "text.image-work")["valid"] is True
 
 
 def test_preview_and_exports_record_checksums(

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Typography Create"
+  short_description: "Create styled transparent text layers"
+  default_prompt: "Use $typography-create to add a styled headline with one gradient word."

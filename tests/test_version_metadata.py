@@ -20,7 +20,7 @@ def test_version_metadata_matches_project_version() -> None:
     assert __version__ == project_version
     assert project_version == PLUGIN_VERSION
     assert plugin_version == project_version
-    assert plugin["version"].endswith("+codex.20260731190000")
+    assert plugin["version"].endswith("+codex.20260801000000")
 
 
 def test_linux_cpu_compatibility_dependencies_are_pinned_and_native_is_optional() -> None:

@@ -22,6 +22,7 @@ All tools return one envelope with `ok`, `job_id: null`, identifiers, `outputs`,
 | `object_select` | Creates a local immutable foreground selection and mask |
 | `background_remove` | Applies a new/existing selection and creates a transparent cutout |
 | `layer_add` | Adds a topmost pixel layer |
+| `text_layer_create` | Renders rich text to a transparent PNG and adds it as a topmost pixel layer |
 | `transform_crop` | Crops one layer or document bounds |
 | `transform_resize` | Resizes one layer or a document |
 | `transform_position` | Sets integer top-left layer coordinates |
@@ -33,6 +34,44 @@ All tools return one envelope with `ok`, `job_id: null`, identifiers, `outputs`,
 Every project tool requires `workspace_id` and workspace-relative `project_path`.
 Mutations require `expected_revision`; stale callers receive `CONFLICT`. Document resize
 requires `content_policy: scale_all | canvas_only`. JPEG requires an explicit background.
+
+`text_layer_create` accepts ordered `runs`, each with a portable `font_family` (`sans`, `serif`,
+or `mono`), `font_size`, exactly one solid `color` or linear `gradient`, and `bold`, `italic`,
+`underline`, and `strikethrough` controls. A gradient uses 2-8 ordered stops with positions from
+0 to 1; angle 0 is left-to-right and increases clockwise. The renderer writes one transparent
+PNG asset, then immediately adds it as a normal-blend layer at `x` and `y`, with optional opacity.
+It supports a solid sentence plus a gradient word by making them separate runs:
+
+```json
+{
+  "name": "Campaign title",
+  "expected_revision": 4,
+  "x": 72,
+  "y": 128,
+  "text": {
+    "runs": [
+      {"text": "Summer ", "style": {"font_size": 72, "color": "#111827"}},
+      {
+        "text": "Sale",
+        "style": {
+          "font_size": 72,
+          "bold": true,
+          "gradient": {
+            "angle_degrees": 0,
+            "stops": [
+              {"position": 0, "color": "#EC4899"},
+              {"position": 1, "color": "#8B5CF6"}
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+Text remains a transparent raster layer: it can be repositioned, resized, cropped, previewed,
+and delivered in PNG/JPEG/PSD, but it is not a native editable Photoshop Type layer.
 
 `export_psd` writes the current ordered normal-blend pixel-layer stack as an 8-bit RGB PSD. It
 preserves layer names, bottom-to-top order, positions (including negative offsets), opacity,

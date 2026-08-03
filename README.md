@@ -64,7 +64,10 @@ See [AI provider configuration](docs/AI_PROVIDERS.md) for the full model and opt
 
 The plugin accepts PNG and JPEG, uses ordered normal-blend pixel layers and immutable selection
 masks on an 8-bit sRGB canvas, and exports PNG, explicitly flattened JPEG, or a layered 8-bit RGB
-PSD. PSD export preserves the current project's pixel-layer names, bottom-to-top order, positions
+PSD. `text_layer_create` deterministically renders styled runs into a separate transparent PNG
+layer: use solid-color and gradient runs in the same sentence, with portable font, size, bold,
+italic, underline, and strikethrough controls. PSD export preserves the current project's pixel-
+layer names, bottom-to-top order, positions
 (including negative offsets), opacity, visibility, alpha, and an opaque canvas background when
 present. The required `psd-tools` backend creates and structurally reopens each staged 8-bit
 RGB+alpha PSD before atomic commit. Its actual backend and validator are recorded in export

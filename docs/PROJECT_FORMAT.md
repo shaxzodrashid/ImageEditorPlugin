@@ -30,6 +30,12 @@ sanitized provider request ID, conversation ID, parent assets, non-secret parame
 timestamp. Conversations contain ordered turns and the provider session identifier needed
 for native continuity. API keys and authorization headers are never project data.
 
+Rich-text assets are deterministic derived PNGs with transparent backgrounds. Their
+`text_layer_create` operation stores the validated ordered text runs (font family, size, solid
+color or gradient, bold, italic, underline, strikethrough, wrapping, alignment, and padding),
+placement, opacity, and Pillow renderer version. The asset is an ordinary image pixel layer after
+creation, so it participates in positioning, transforms, previews, safe-zone checks, and exports.
+
 The checked-in schema is [project-manifest.schema.json](../schemas/project-manifest.schema.json).
 Derived identity hashes the input checksum, resolved parameters, engine name, and engine version.
 

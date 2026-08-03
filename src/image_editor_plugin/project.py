@@ -52,6 +52,7 @@ from .models import (
     OperationRecord,
     ProjectManifest,
     ResizeFilter,
+    RichTextLayerOptions,
     SelectionBounds,
     SelectionMethod,
     SelectionRecord,
@@ -59,6 +60,7 @@ from .models import (
 )
 from .psd_export import PsdExporter, PsdExportResult, PsdLayerSource
 from .security import WorkspaceRegistry, relative_to_root
+from .text_renderer import RENDERER_NAME, RENDERER_VERSION, RichTextRenderer
 
 MANIFEST_NAME = "manifest.json"
 
@@ -103,6 +105,7 @@ class ProjectService:
         time_provider: TimeProvider = utc_now,
         background_runtime: BackgroundRuntime | None = None,
         psd_exporter: PsdExporter | None = None,
+        text_renderer: RichTextRenderer | None = None,
     ) -> None:
         self.registry = registry
         self.engine = engine
@@ -110,6 +113,7 @@ class ProjectService:
         self.time_provider = time_provider
         self.background_runtime = background_runtime or BackgroundRuntime()
         self.psd_exporter = psd_exporter or PsdExporter()
+        self.text_renderer = text_renderer or RichTextRenderer()
 
     def create(
         self,
@@ -493,6 +497,98 @@ class ProjectService:
             manifest.operations.append(operation)
             self._commit(project_dir, manifest)
             return manifest, layer, operation
+
+    def create_text_layer(
+        self,
+        workspace_id: str,
+        project_path: str,
+        name: str,
+        text: RichTextLayerOptions,
+        x: int,
+        y: int,
+        opacity: float,
+        expected_revision: int,
+    ) -> tuple[ProjectManifest, AssetRecord, LayerRecord, OperationRecord]:
+        """Render rich text to an immutable transparent PNG and add it as a project layer."""
+
+        project_dir = self._project_dir(workspace_id, project_path, must_exist=True)
+        with self._lock(project_dir):
+            manifest = self._load(project_dir)
+            self._expect_revision(manifest, expected_revision)
+            if len(manifest.layers) >= MAX_LAYERS:
+                raise invalid("The project has reached its 256-layer limit.")
+            text_parameters = text.model_dump(mode="json")
+            operation_hash = sha256_json(
+                {
+                    "operation": "text_layer_create",
+                    "parameters": text_parameters,
+                    "renderer": RENDERER_NAME,
+                    "renderer_version": RENDERER_VERSION,
+                }
+            )
+            stage = self._stage_path(project_dir, ".png")
+            destination: Path | None = None
+            created_destination = False
+            try:
+                rendered = self.text_renderer.render(text, stage)
+                checksum = sha256_file(stage)
+                asset = next((item for item in manifest.assets if item.sha256 == checksum), None)
+                if asset is None:
+                    if len(manifest.assets) >= MAX_ASSETS:
+                        raise invalid("The project has reached its 1,024-asset limit.")
+                    relative = f"assets/derived/{checksum}.png"
+                    destination = project_dir / relative
+                    if not destination.exists():
+                        os.replace(stage, destination)
+                        created_destination = True
+                    info = ImageInfo(
+                        format="PNG",
+                        width=rendered.width,
+                        height=rendered.height,
+                        channels="srgba",
+                        colorspace="sRGB",
+                        profiles="",
+                        depth=8,
+                    )
+                    asset = self._asset_record(
+                        AssetKind.DERIVED,
+                        relative,
+                        destination,
+                        info,
+                        f"{name}.png",
+                        operation_hash,
+                        warnings=[
+                            "Text asset is rendered in sRGB without an embedded ICC profile."
+                        ],
+                    )
+                    manifest.assets.append(asset)
+                layer = LayerRecord(
+                    id=self.id_provider("lyr"),
+                    name=name,
+                    asset_id=asset.id,
+                    x=x,
+                    y=y,
+                    opacity=opacity,
+                )
+                operation = self._operation(
+                    "text_layer_create",
+                    [layer.id],
+                    [],
+                    [asset.id],
+                    {"name": name, "x": x, "y": y, "opacity": opacity, "text": text_parameters},
+                    engine_name=RENDERER_NAME,
+                    engine_version=RENDERER_VERSION,
+                )
+                manifest.layers.append(layer)
+                manifest.operations.append(operation)
+                self._commit(project_dir, manifest)
+                return manifest, asset, layer, operation
+            except Exception:
+                if created_destination and destination is not None:
+                    destination.unlink(missing_ok=True)
+                raise
+            finally:
+                stage.unlink(missing_ok=True)
 
     def position_layer(
         self,

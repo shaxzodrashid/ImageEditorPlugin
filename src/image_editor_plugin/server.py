@@ -44,6 +44,7 @@ from .models import (
     LayerDecompositionOptions,
     MetadataPolicy,
     ResizeFilter,
+    RichTextLayerOptions,
     SelectionMethod,
     TransformTarget,
 )
@@ -154,6 +155,7 @@ def system_capabilities() -> dict[str, Any]:
                     "masked AI editing where supported",
                     "Qwen semantic layer decomposition",
                     "OpenAI web-grounded image search",
+                    "rich text to transparent PNG layer",
                 ],
                 "deferred": [
                     "PSB",
@@ -162,6 +164,7 @@ def system_capabilities() -> dict[str, Any]:
                     "filters",
                     "undo/redo",
                     "asynchronous jobs",
+                    "native editable Photoshop type layers",
                 ],
                 "background_removal": {
                     "local_only": True,
@@ -581,6 +584,45 @@ def layer_add(
             "revision": manifest.revision,
             "operation_id": operation.id,
             "outputs": {"layer": layer},
+        }
+
+    return run_enveloped(action)
+
+
+@mcp.tool(annotations=WRITE)
+def text_layer_create(
+    workspace_id: str,
+    project_path: str,
+    name: str,
+    text: RichTextLayerOptions,
+    expected_revision: int,
+    x: int = 0,
+    y: int = 0,
+    opacity: float = 1.0,
+) -> dict[str, Any]:
+    """Render styled text to a transparent PNG asset and add it as a separately positionable layer.
+
+    Text is supplied as ordered runs, so a whole sentence can use a solid fill while one word uses
+    a linear gradient. Each run controls portable font family, size, solid color or gradient, bold,
+    italic, underline, and strikethrough. The resulting layer remains raster text in PSD exports.
+    """
+
+    def action() -> dict[str, Any]:
+        manifest, asset, layer, operation = projects.create_text_layer(
+            workspace_id,
+            project_path,
+            name,
+            text,
+            x,
+            y,
+            opacity,
+            expected_revision,
+        )
+        return {
+            "project_id": manifest.project_id,
+            "revision": manifest.revision,
+            "operation_id": operation.id,
+            "outputs": {"asset": asset, "layer": layer, "operation": operation},
         }
 
     return run_enveloped(action)
